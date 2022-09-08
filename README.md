@@ -15,7 +15,7 @@
 
 用于存放测试命令的log信息,其文件结构如下        
 
-其中commits.txt存放待测试的commit       
+其中commits.txt存放待测试的commit,该文件只存在于运行时       
 
 commit.txt.old存放上次测试完毕的commit      
 
@@ -23,12 +23,12 @@ commit.txt.old存放上次测试完毕的commit
 
 如果某commit发生错误,则可以发送错误信息到指定邮箱用于通知
 
-该项目使用autotest.cfg进行配置      
+该项目使用xxx.cfg进行配置      
 
-具体配置事项以注释的形式说明
+具体配置事项以注释的形式在temp.cfg中说明
 
 
-项目log文件目录:
+## 项目log文件目录:
 ```
 log_root
 --[commit hash code]
@@ -38,7 +38,7 @@ log_root
         --taskerr.txt
     --work2
         --...
-    --sub.txt
+    --iter_log.txt
 --[commit hash code]
     --...
 --commits.txt
@@ -50,5 +50,19 @@ other.txt:代表每个work的pre-task,post-task,except-task输出
 taskerr.txt:代表每个work的task错误输出
 taskout.txt:代表每个work的task标准输出
 
-commits.txt:代表当前迭代待测试的commit
+iter_log.txt:代表当前commit测试过程中,pre-work和post-work的输出
+
+commits.txt:代表当前迭代待测试的commit,该文件只存在于运行时
 commit.txt.old:代表上次迭代已执行完毕的commit
+
+## 使用方法
+
+目前已配置好一个例子
+进入script文件夹
+输入
+```
+python3 autotest.py
+```
+即可
+
+如果要自定义测试脚本,请参考temp.cfg

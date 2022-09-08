@@ -12,7 +12,7 @@ import json
 
 import utils
 
-CFG_PATH = 'autotest.cfg'
+CFG_PATH = 'temp.cfg'
 
 # check dir
 cfgfile = utils.CFGReader(CFG_PATH)
@@ -42,7 +42,7 @@ def mailSendMsg(msg: str):
         smtp.login(cfgfile['mail']['mail_sender'],
                    cfgfile['mail']['mail_license'])
         for receiver in cfgfile['mail']['mail_receivers'].split(';'):
-            smtp.sendmail(cfgfile['mail']['mail_sender'],receiver, msg)
+            smtp.sendmail(cfgfile['mail']['mail_sender'], receiver, msg)
         smtp.quit()
 
 
@@ -52,25 +52,27 @@ def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
     '''
     task = pre_work.get('pre-work').copy()
     utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))
+    # pre-work:pre-task
     pre = subprocess.run(args=task[0], shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-    ret = subprocess.run(args=task[1], shell=True, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-    after_process = None
-    if ret.returncode == 0:
-        pass
-    else:
-        after_process = subprocess.run(args=task[3], shell=True, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     log_file.write('**********pre-work:pre-task start**********\n')
     log_file.write(pre.stdout)
-    log_file.write('**********pre-work:task start**********\n')
-    log_file.write(ret.stdout)
-    if after_process:
+    # pre-work:task
+    ret = None
+    if pre.returncode == 0:
+        ret = subprocess.run(args=task[1], shell=True, stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+        log_file.write('**********pre-work:task start**********\n')
+        log_file.write(ret.stdout)
+    exce = None
+    if not (ret and ret.returncode == 0):
+        exce = subprocess.run(args=task[3], shell=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         log_file.write(
-            '**********pre-work: task running error,except-task start**********\n')
-        log_file.write(after_process.stdout)
+            '**********pre-work: running error,except-task start**********\n')
+        log_file.write(exce.stdout)
         return False
+
     return True
 
 
@@ -86,7 +88,7 @@ def Wrun(log_dir, etcArg):
     finished = True
     runErr_works = []
     for i in range(len(results)):
-        if results[i] != 0:
+        if not results[i]:
             runErr_works.append(work_items[i][0])
             finished = False
     return finished, runErr_works
@@ -98,41 +100,47 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
     '''
     task = post_work.get('post-work').copy()
     utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))
+    # post-work:task start
     ret = subprocess.run(args=task[1], shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     log_file.write('**********post-work:task start**********\n')
     log_file.write(ret.stdout)
-    if work_finished and ret.returncode == 0:
-        after_process = subprocess.run(args=task[2], shell=True, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+    # post-work:post-task start
+    post = None
+    if ret.returncode == 0:
+        post = subprocess.run(args=task[2], shell=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
 
         log_file.write('**********post-work:post-task start**********\n')
-        log_file.write(after_process.stdout)
-        log_file.close()
-        return True
-    else:
-        log_file.close()
+        log_file.write(post.stdout)
+    log_file.close()
+    if (not (post and post.returncode == 0)) or (not work_finished):
         subprocess.run(args=task[3], shell=True, stdout=None,
-                                       stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-        return False
+                       stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
 
-#如果当前commit测试错误,则删除未还未测试的commit
-#用于在此产生一个断点用于下次运行时恢复运行
-def breakpointSave(break_commit:dict):
-    done_commits: list[dict]=[]
+        # 返回post-work的结果
+        return (post and post.returncode == 0)
+    return True
+
+# 如果当前commit测试错误,则删除未还未测试的commit
+# 用于在此产生一个断点用于下次运行时恢复运行
+
+
+def breakpointSave(break_commit: dict):
+    done_commits: list[dict] = []
     with open(commit_info_path, 'r') as fs:
         local_commits = json.loads(fs.read())
         for i in range(len(local_commits)-1):
             if local_commits[i]['commit'] == break_commit['commit']:
                 done_commits = local_commits[i+1:]
                 break
-    with open(commit_info_path,'w') as fs:
+    with open(commit_info_path, 'w') as fs:
         fs.write(json.dumps(done_commits))
 
 
 def iteration(extra_commits):
     extra_commits.reverse()
-    #从最老的commit开始测试
+    # 从最老的commit开始测试
     for commit in extra_commits:
         repo.git.checkout(commit['commit'])
         commit_log_path = cfgfile['global']['log_root']+'/'+commit['commit']
@@ -145,40 +153,35 @@ def iteration(extra_commits):
         #######
         finished0 = Wstart(commit_log_path, commit_log_file, etcArg)
         finished1 = False
-        finished2 = False
         if finished0:
             #######
             finished1, runErr_works = Wrun(commit_log_path, etcArg)
-
             if not finished1:
                 error_msg += 'error works:{0}\n'.format(str(runErr_works))
-            #######注意post-work会自动关闭commit_log_file
-            finished2 = Wend(finished1, commit_log_path,
-                             commit_log_file, etcArg)
-
-            if (not finished2) and finished1:
-                error_msg += 'post-work running error\n'
         else:
-            commit_log_file.close()
             error_msg += 'pre-work running error\n'
-        
+        # 它会自动关闭commit_log_file
+        finished2 = Wend(finished1, commit_log_path,
+                         commit_log_file, etcArg)
+        if not finished2:
+            error_msg += 'post-work running error\n'
 
-        if not (finished0 and finished1 and finished2):#发生任何错误
+        if not (finished0 and finished1 and finished2):  # 发生任何错误
 
-            #发送消息
+            # 发送消息
             mailSendMsg(
-            """autotest find a error in:
+                """autotest find a error in:
             repo:{0}
             commit:{1} in branch:{2}
             error msg: 
             {3}
             """.format(cfgfile['global']['repo_url'], commit['commit'], cfgfile['global']['repo_branch'], error_msg))
-            if cfgfile['iteration']['except_mode'] == 'stop':#如果是stop模式则直接退出并打一个断点
+            if cfgfile['iteration']['except_mode'] == 'stop':  # 如果是stop模式则直接退出并打一个断点
                 breakpointSave(commit)
                 return False
-            elif cfgfile['iteration']['except_mode'] == 'skip':#如果是skip模式则跳过当前测试,进入下次迭代
+            elif cfgfile['iteration']['except_mode'] == 'skip':  # 如果是skip模式则跳过当前测试,进入下次迭代
                 break
-            elif cfgfile['iteration']['except_mode'] == 'ignore':#忽略,继续执行下一个commit测试
+            elif cfgfile['iteration']['except_mode'] == 'ignore':  # 忽略,继续执行下一个commit测试
                 pass
     return True
 
@@ -191,7 +194,7 @@ while endless or iterations > 0:
 
     finished = iteration(extra_commits)
     iterations -= 1
-    #保存已完成的commit
+    # 保存已完成的commit
     utils.saveCommits(commit_info_path)
 
     if not finished:

@@ -73,7 +73,7 @@ def getBranch(cfgfile):
 # return the all commit info
 
 
-def getAllCommitInfo(repo: git.Repo, count:int) -> list[dict]:
+def getAllCommitInfo(repo: git.Repo, count: int) -> list[dict]:
     '''
     get branch's commits info:commit:hashcode,author,summary,date
     Sort by time
@@ -93,7 +93,7 @@ def checkCommit(commit_info_path, origin_commits: list[dict]):
     '''
     extra_commits = []
     # init commits info
-    if not os.path.exists(commit_info_path+'.old'):  
+    if not os.path.exists(commit_info_path+'.old'):
         with open(commit_info_path, 'w') as fs:
             fs.write(json.dumps(origin_commits))
             return origin_commits
@@ -102,10 +102,10 @@ def checkCommit(commit_info_path, origin_commits: list[dict]):
     # load last has done commit
     with open(commit_info_path+'.old', 'r') as fs:
         local_commits = json.loads(fs.read())
-    
-    if len(local_commits)==0:
+
+    if len(local_commits) == 0:
         return origin_commits
-    
+
     # replace the new local commit
     with open(commit_info_path, 'w') as fs:
         fs.write(json.dumps(origin_commits))
@@ -130,7 +130,7 @@ def saveCommits(commit_info_path):
 def getWorks(cfgfile: dict[str, dict]):
     pre_work: dict[str, list] = {}
     works: dict[str, list] = {}
-    post_work:dict[str,list] = {}
+    post_work: dict[str, list] = {}
     for work in cfgfile.items():
         if not work[1].get('pre-task'):
             work[1].update({'pre-task': ''})
@@ -140,9 +140,9 @@ def getWorks(cfgfile: dict[str, dict]):
             work[1].update({'except-task': ''})
         if work[0] == 'pre-work':
             pre_work.update({'pre-work': [work[1].get('pre-task'),
-                                           work[1].get('task'),
-                                           work[1].get('post-task'),
-                                           work[1].get('except-task')]})
+                                          work[1].get('task'),
+                                          work[1].get('post-task'),
+                                          work[1].get('except-task')]})
         if work[0] == 'post-work':
             post_work.update({'post-work': [work[1].get('pre-task'),
                                             work[1].get('task'),
@@ -169,6 +169,7 @@ def argReplace(coms: list[str], specArg: dict):
                     warning('argReplace: [can\'t find the specarg] ' + rep)
 
 # start one work
+# return finished
 
 
 def startWork(work: tuple[str, dict], log_dir: str, etcArg: dict[str, str]):
@@ -181,26 +182,34 @@ def startWork(work: tuple[str, dict], log_dir: str, etcArg: dict[str, str]):
 
     taskout = open(log_+'/taskout.txt', 'w')
     taskerr = open(log_+'/taskerr.txt', 'w')
-
+    other = open(log_+'/other.txt', 'w')
+    # start pre-task
     pre = subprocess.run(args=task[0], shell=True, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-    ret = subprocess.run(args=task[1], shell=True, stdout=taskout,
-                         stderr=taskerr, stdin=None, check=False, encoding='utf-8')
-    after_process = None
-    if ret.returncode == 0:
-        after_process = subprocess.run(args=task[2], shell=True, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-    else:
-        after_process = subprocess.run(args=task[3], shell=True, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+    other.write('**********pre-task start**********\n')
+    other.write(pre.stdout)
+    # start task
+    ret = None
+    if pre.returncode == 0:
+        ret = subprocess.run(args=task[1], shell=True, stdout=taskout,
+                             stderr=taskerr, stdin=None, check=False, encoding='utf-8')
     taskout.close()
     taskerr.close()
-    with open(log_+'/other.txt', 'w') as fs:
-        fs.write('**********pre-task start**********\n')
-        fs.write(pre.stdout)
-        if ret.returncode == 0:
-            fs.write('**********task finished,post-task start**********\n')
-        else:
-            fs.write('**********task running error,except-task start**********\n')
-        fs.write(after_process.stdout)
-    return ret.returncode
+    # start post-task
+    post = None
+    if ret and ret.returncode == 0:
+        post = subprocess.run(args=task[2], shell=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+        other.write('**********task finished,post-task start**********\n')
+        other.write(post.stdout)
+    # start except-task
+    if not (post and post.returncode == 0):
+        exce = subprocess.run(args=task[3], shell=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+        other.write(
+            '**********running error,except-task start**********\n')
+        other.write(exce.stdout)
+        other.close()
+        return False
+    other.close()
+    return True
