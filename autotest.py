@@ -8,6 +8,7 @@ import subprocess
 from multiprocessing import Pool
 import os
 import time
+import json
 
 import utils
 
@@ -15,6 +16,8 @@ CFG_PATH = 'autotest.cfg'
 
 # check dir
 cfgfile = utils.CFGReader(CFG_PATH)
+commit_info_path = cfgfile['global']['log_root'] + '/commits.txt'
+
 works, pre_work, post_work = utils.getWorks(cfgfile)
 if len(works) == 0:
     print('has no work to do')
@@ -113,11 +116,23 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
                                        stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         return False
 
+#如果当前commit测试错误,则删除未还未测试的commit
+#用于在此产生一个断点用于下次运行时恢复运行
+def breakpointSave(break_commit:dict):
+    done_commits: list[dict]=[]
+    with open(commit_info_path, 'r') as fs:
+        local_commits = json.loads(fs.read())
+        for i in range(len(local_commits)-1):
+            if local_commits[i]['commit'] == break_commit['commit']:
+                done_commits = local_commits[i+1:]
+                break
+    with open(commit_info_path,'w') as fs:
+        fs.write(json.dumps(done_commits))
 
 
-def iteration():
-    origin_commits = utils.getAllCommitInfo(repo, int(cfgfile['pull']['n']))
-    extra_commits = utils.checkCommit(cfgfile, repo, origin_commits)
+def iteration(extra_commits):
+    extra_commits.reverse()
+    #从最老的commit开始测试
     for commit in extra_commits:
         repo.git.checkout(commit['commit'])
         commit_log_path = cfgfile['global']['log_root']+'/'+commit['commit']
@@ -149,16 +164,21 @@ def iteration():
         
 
         if not (finished0 and finished1 and finished2):#发生任何错误
+
             #发送消息
             mailSendMsg(
             """autotest find a error in:
-            commit:{0} in branch:{1}
+            repo:{0}
+            commit:{1} in branch:{2}
             error msg: 
-            {2}
-            """.format(commit['commit'], cfgfile['global']['repo_branch'], error_msg))
-            if cfgfile['iteration']['except_mode'] == 'stop':
+            {3}
+            """.format(cfgfile['global']['repo_url'], commit['commit'], cfgfile['global']['repo_branch'], error_msg))
+            if cfgfile['iteration']['except_mode'] == 'stop':#如果是stop模式则直接退出并打一个断点
+                breakpointSave(commit)
                 return False
-            elif cfgfile['iteration']['except_mode'] == 'ignore':
+            elif cfgfile['iteration']['except_mode'] == 'skip':#如果是skip模式则跳过当前测试,进入下次迭代
+                break
+            elif cfgfile['iteration']['except_mode'] == 'ignore':#忽略,继续执行下一个commit测试
                 pass
     return True
 
@@ -166,8 +186,15 @@ def iteration():
 endless = int(cfgfile['iteration']['num']) < 0
 iterations = int(cfgfile['iteration']['num'])
 while endless or iterations > 0:
-    finished = iteration()
-    iterations -= 1
+    origin_commits = utils.getAllCommitInfo(repo, int(cfgfile['pull']['n']))
+    extra_commits = utils.checkCommit(commit_info_path, origin_commits)
 
+    finished = iteration(extra_commits)
+    iterations -= 1
+    #保存已完成的commit
+    utils.saveCommits(commit_info_path)
+
+    if not finished:
+        exit(-1)
     # 延迟
     time.sleep(eval(cfgfile['iteration']['end_delay']))

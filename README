@@ -33,7 +33,7 @@ commit.txt.old存放上次测试完毕的commit
 log_root
 --[commit hash code]
     --work1
-        --pre_post.txt
+        --other.txt
         --taskout.txt
         --taskerr.txt
     --work2
@@ -42,5 +42,13 @@ log_root
 --[commit hash code]
     --...
 --commits.txt
-
+--commits.txt.old
 ```
+
+其中:
+other.txt:代表每个work的pre-task,post-task,except-task输出
+taskerr.txt:代表每个work的task错误输出
+taskout.txt:代表每个work的task标准输出
+
+commits.txt:代表当前迭代待测试的commit
+commit.txt.old:代表上次迭代已执行完毕的commit

@@ -85,26 +85,27 @@ def getAllCommitInfo(repo: git.Repo, count:int) -> list[dict]:
     return real_log_list
 
 
-def checkCommit(cfgfile, repo: git.Repo, origin_commits: list[dict]):
+def checkCommit(commit_info_path, origin_commits: list[dict]):
     '''
     compare the local commits info with origin commits
     and return the extra commit
     if local is the newest ,return None
     '''
-    commit_info_path = cfgfile['global']['log_root'] + '/commits.txt'
     extra_commits = []
-    if not os.path.exists(commit_info_path):  # init commits info
+    # init commits info
+    if not os.path.exists(commit_info_path+'.old'):  
         with open(commit_info_path, 'w') as fs:
             fs.write(json.dumps(origin_commits))
             return origin_commits
     ##
     local_commits = []
-    # load local commit
-    with open(commit_info_path, 'r') as fs:
+    # load last has done commit
+    with open(commit_info_path+'.old', 'r') as fs:
         local_commits = json.loads(fs.read())
-    # replace the old local commit
-    with open(commit_info_path+'.old', 'w') as fs:
-        fs.write(json.dumps(local_commits))
+    
+    if len(local_commits)==0:
+        return origin_commits
+    
     # replace the new local commit
     with open(commit_info_path, 'w') as fs:
         fs.write(json.dumps(origin_commits))
@@ -112,9 +113,16 @@ def checkCommit(cfgfile, repo: git.Repo, origin_commits: list[dict]):
         if origin_commits[i]['commit'] == local_commits[0]['commit']:
             if i == 0:
                 return []
-            extra_commits = origin_commits[0:i-1]
+            extra_commits = origin_commits[0:i]
             return extra_commits
     return origin_commits
+
+
+def saveCommits(commit_info_path):
+    '''
+    save has finished commit
+    '''
+    os.rename(commit_info_path, commit_info_path+'.old')
 
 
 # get cfgfile custom works
