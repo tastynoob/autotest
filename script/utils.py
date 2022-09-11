@@ -93,10 +93,10 @@ def checkCommit(commit_info_path, origin_commits: list[dict]):
     '''
     extra_commits = []
     # init commits info
+    with open(commit_info_path, 'w') as fs:
+        fs.write(json.dumps(origin_commits))
     if not os.path.exists(commit_info_path+'.old'):
-        with open(commit_info_path, 'w') as fs:
-            fs.write(json.dumps(origin_commits))
-            return origin_commits
+        return origin_commits
     ##
     local_commits = []
     # load last has done commit
@@ -106,9 +106,6 @@ def checkCommit(commit_info_path, origin_commits: list[dict]):
     if len(local_commits) == 0:
         return origin_commits
 
-    # replace the new local commit
-    with open(commit_info_path, 'w') as fs:
-        fs.write(json.dumps(origin_commits))
     for i in range(len(origin_commits)):
         if origin_commits[i]['commit'] == local_commits[0]['commit']:
             if i == 0:
