@@ -79,20 +79,42 @@ def Wrun(log_dir, etcArg):
     pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
     results = []
     work_items = list(works.items())
-    i=0
+    cnt=0
     for work in work_items:
         results.append(pool.apply_async(
-            utils.startWork, (work, log_dir,dict({'tid':i} ,**etcArg))))
-        i+=1
-        if i >= int(cfgfile['iteration']['max_thread']):
-            i=0
+            utils.startWork, (work, log_dir,dict({'tid':cnt} ,**etcArg))))
+        cnt+=1
+        if cnt >= int(cfgfile['iteration']['max_thread']):
+            cnt=0
     pool.close()
     pool.join()
     finished = True
     runErr_works = []
-    for i in range(len(results)):
-        if not results[i].get():
-            runErr_works.append(work_items[i][0])
+    for cnt in range(len(results)):
+        if not results[cnt].get():
+            runErr_works.append(work_items[cnt][0])
+            finished = False
+    return finished, runErr_works
+
+def Wrun_single(log_dir,etcArg):
+    pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
+    results = []
+    work_items = list(works.items())
+    cnt = 0
+    files = os.listdir(cfgfile['global']['bin_dir'])
+    for file in files:
+        results.append(pool.apply_async(
+            utils.startWork, ([file,work_items[0][1]], log_dir, dict({'tid': cnt,'binfile':file}, **etcArg))))
+        cnt += 1
+        if cnt >= int(cfgfile['iteration']['max_thread']):
+            cnt = 0
+    pool.close()
+    pool.join()
+    finished = True
+    runErr_works = []
+    for cnt in range(len(results)):
+        if not results[cnt].get():
+            runErr_works.append(work_items[cnt][0])
             finished = False
     return finished, runErr_works
 
@@ -126,7 +148,6 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
 # 如果当前commit测试错误,则删除未还未测试的commit
 # 用于在此产生一个断点用于下次运行时恢复运行
 
-
 def breakpointSave(break_commit: dict):
     done_commits: list[dict] = []
     with open(commit_info_path, 'r') as fs:
@@ -156,7 +177,10 @@ def iteration(extra_commits):
         finished1 = False
         if finished0:
             #######
-            finished1, runErr_works = Wrun(commit_log_path, etcArg)
+            if cfgfile['global']['working_mode'] == 'multi' :
+                finished1, runErr_works = Wrun(commit_log_path, etcArg)
+            elif cfgfile['global']['working_mode'] == 'single' :
+                finished1, runErr_works =  Wrun_single(commit_log_path, etcArg)
             if not finished1:
                 error_msg += 'error works:{0}\n'.format(str(runErr_works))
         else:
@@ -185,6 +209,8 @@ def iteration(extra_commits):
             elif cfgfile['iteration']['except_mode'] == 'ignore':  # 忽略,继续执行下一个commit测试
                 pass
     return True
+
+
 
 
 endless = int(cfgfile['iteration']['num']) < 0
