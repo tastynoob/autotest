@@ -12,7 +12,7 @@ import json
 
 import utils
 
-CFG_PATH = 'temp.cfg'
+CFG_PATH = '/media/lurker/CACHE/forLinux/openxiangshan/autotest/script/temp.cfg'
 
 # check dir
 cfgfile = utils.CFGReader(CFG_PATH)
@@ -52,43 +52,46 @@ def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
     '''
     task = pre_work.get('pre-work').copy()
     utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))
-    # pre-work:pre-task
-    pre = subprocess.run(args=task[0], shell=True, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     log_file.write('**********pre-work:pre-task start**********\n')
-    log_file.write(pre.stdout)
+    log_file.flush()
+    # pre-work:pre-task
+    pre = subprocess.run(args=task[0], shell=True, stdout=log_file,
+                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     # pre-work:task
     ret = None
     if pre.returncode == 0:
-        ret = subprocess.run(args=task[1], shell=True, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         log_file.write('**********pre-work:task start**********\n')
-        log_file.write(ret.stdout)
-    exce = None
+        log_file.flush()
+        ret = subprocess.run(args=task[1], shell=True, stdout=log_file,
+                             stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     if not (ret and ret.returncode == 0):
-        exce = subprocess.run(args=task[3], shell=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         log_file.write(
             '**********pre-work: running error,except-task start**********\n')
-        log_file.write(exce.stdout)
+        log_file.flush()
+        exce = subprocess.run(args=task[3], shell=True, stdout=log_file,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         return False
 
     return True
 
 
 def Wrun(log_dir, etcArg):
-    pool = Pool(processes=len(works))
+    pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
     results = []
     work_items = list(works.items())
+    i=0
     for work in work_items:
         results.append(pool.apply_async(
-            utils.startWork, (work, log_dir, etcArg)).get())
+            utils.startWork, (work, log_dir,dict({'tid':i} ,**etcArg))))
+        i+=1
+        if i >= int(cfgfile['iteration']['max_thread']):
+            i=0
     pool.close()
     pool.join()
     finished = True
     runErr_works = []
     for i in range(len(results)):
-        if not results[i]:
+        if not results[i].get():
             runErr_works.append(work_items[i][0])
             finished = False
     return finished, runErr_works
@@ -100,24 +103,22 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
     '''
     task = post_work.get('post-work').copy()
     utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))
-    # post-work:task start
-    ret = subprocess.run(args=task[1], shell=True, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     log_file.write('**********post-work:task start**********\n')
-    log_file.write(ret.stdout)
+    log_file.flush()
+    # post-work:task start
+    ret = subprocess.run(args=task[1], shell=True, stdout=log_file,
+                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     # post-work:post-task start
     post = None
     if ret.returncode == 0:
-        post = subprocess.run(args=task[2], shell=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-
         log_file.write('**********post-work:post-task start**********\n')
-        log_file.write(post.stdout)
+        log_file.flush()
+        post = subprocess.run(args=task[2], shell=True, stdout=log_file,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     log_file.close()
     if (not (post and post.returncode == 0)) or (not work_finished):
         subprocess.run(args=task[3], shell=True, stdout=None,
                        stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-
         # 返回post-work的结果
         return (post and post.returncode == 0)
     return True

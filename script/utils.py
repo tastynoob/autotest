@@ -15,7 +15,7 @@ class CFGReader:
     def __init__(self, cfg_path) -> None:
         if not os.path.exists(cfg_path):
             print('there is no cfg file')
-            exit(-1)
+            exit(1)
         cfgfile = configparser.ConfigParser()
         try:
             cfgfile.read(cfg_path)
@@ -162,7 +162,7 @@ def argReplace(coms: list[str], specArg: dict):
         if coms[i]:
             for arg in reObj.findall(coms[i]):
                 rep = arg[1:-1]
-                var0 = specArg.get(rep)
+                var0 = str(specArg.get(rep))
                 if var0:
                     coms[i] = coms[i].replace(arg, var0)
                 else:
@@ -183,11 +183,12 @@ def startWork(work: tuple[str, dict], log_dir: str, etcArg: dict[str, str]):
     taskout = open(log_+'/taskout.txt', 'w')
     taskerr = open(log_+'/taskerr.txt', 'w')
     other = open(log_+'/other.txt', 'w')
-    # start pre-task
-    pre = subprocess.run(args=task[0], shell=True, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     other.write('**********pre-task start**********\n')
-    other.write(pre.stdout)
+    other.flush()
+    # start pre-task
+    pre = subprocess.run(args=task[0], shell=True, stdout=other,
+                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+
     # start task
     ret = None
     if pre.returncode == 0:
@@ -198,17 +199,17 @@ def startWork(work: tuple[str, dict], log_dir: str, etcArg: dict[str, str]):
     # start post-task
     post = None
     if ret and ret.returncode == 0:
-        post = subprocess.run(args=task[2], shell=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         other.write('**********task finished,post-task start**********\n')
-        other.write(post.stdout)
+        other.flush()
+        post = subprocess.run(args=task[2], shell=True, stdout=other,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     # start except-task
     if not (post and post.returncode == 0):
-        exce = subprocess.run(args=task[3], shell=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         other.write(
             '**********running error,except-task start**********\n')
-        other.write(exce.stdout)
+        other.flush()
+        exce = subprocess.run(args=task[3], shell=True, stdout=other,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         other.close()
         return False
     other.close()
