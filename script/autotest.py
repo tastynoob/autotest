@@ -177,9 +177,9 @@ def iteration(extra_commits):
         finished1 = False
         if finished0:
             #######
-            if cfgfile['global']['working_mode'] == 'multi' :
+            if cfgfile['iteration']['working_mode'] == 'multi':
                 finished1, runErr_works = Wrun(commit_log_path, etcArg)
-            elif cfgfile['global']['working_mode'] == 'single' :
+            elif cfgfile['iteration']['working_mode'] == 'single':
                 finished1, runErr_works =  Wrun_single(commit_log_path, etcArg)
             if not finished1:
                 error_msg += 'error works:{0}\n'.format(str(runErr_works))

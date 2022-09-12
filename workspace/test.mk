@@ -3,7 +3,6 @@ DUAL_EMU=numactl -m 0 -C 0-127 ${NOOP_HOME}/dual-build/emu -b 0 -e 0 --diff=${NO
 ARCH=riscv64-xs
 MAKEFLAGS=-j
 
-LOG_DIR=${NOOP_HOME}/result-`date "+%y-%m-%d"`
 RESULT=${LOG_DIR}/result.txt
 define REPORT
 if [ $$? != 0 ];then \
@@ -16,7 +15,7 @@ if [ $$? != 0 ];then \
 endef
 
 
-export SINGLE_EMU DUAL_EMU ARCH LOG_DIR RESULT
+export SINGLE_EMU DUAL_EMU ARCH RESULT
 
 .PHONY: pre post nexus-am coremark
 
@@ -27,7 +26,8 @@ ifeq ($(AM_HOME),)
 	exit
 endif
 pre:
-	@mkdir -p $(LOG_DIR)
+	echo $(LOG_DIR)
+	@mkdir $(LOG_DIR)
 
 nexus-am: pre
 	$(MAKE) -C ${AM_HOME} build -j1
@@ -97,7 +97,7 @@ $(TL_TEST):
 	git clone -b b-boost https://github.com/OpenXiangShan/tl-test.git $@
 ######################linux test###################################
 LINUX_PATH=/nfs-nvme/home/share/xs-workloads
-LINUX_BIN = linux-4.18-coremarkpro linux-4.18-redis linux-4.18-debian linux-4.18-hello #linux-4.18-smp-hello
+LINUX_BIN = linux-4.18-coremarkpro linux-4.18-hello #linux-4.18-smp-hello
 LINUX_SMP_BIN = linux-4.18-smp-hello
 linux_test: $(LINUX_BIN) $(LINUX_SMP_BIN)
 LINUX_TEST_LOG=$(LOG_DIR)/linux_test
