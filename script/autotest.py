@@ -75,17 +75,23 @@ def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
     return True
 
 
+
+
 def Wrun(log_dir, etcArg):
     pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
     results = []
     work_items = list(works.items())
-    cnt=0
+    cnt = 0
     for work in work_items:
+        numaCores = cfgfile['work-'+work[0]].get('numacores')
+        if not numaCores:
+            numaCores=1
+        numa_args = utils.get_numa_args(numaCores)
         results.append(pool.apply_async(
-            utils.startWork, (work, log_dir,dict({'tid':cnt} ,**etcArg))))
-        cnt+=1
+            utils.startWork, (work, log_dir, dict({'tid': cnt, 'numa': numa_args}, **etcArg))))
+        cnt += 1
         if cnt >= int(cfgfile['iteration']['max_thread']):
-            cnt=0
+            cnt = 0
     pool.close()
     pool.join()
     finished = True
@@ -96,18 +102,25 @@ def Wrun(log_dir, etcArg):
             finished = False
     return finished, runErr_works
 
-def Wrun_single(log_dir,etcArg):
+
+def Wrun_single(log_dir, etcArg):
     pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
     results = []
     work_items = list(works.items())
     cnt = 0
-    files = os.listdir(cfgfile['global']['bin_dir'])
-    for file in files:
-        results.append(pool.apply_async(
-            utils.startWork, ([file,work_items[0][1]], log_dir, dict({'tid': cnt,'binfile':file}, **etcArg))))
-        cnt += 1
-        if cnt >= int(cfgfile['iteration']['max_thread']):
-            cnt = 0
+    for work in work_items:
+        files = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
+        print(files)
+        for file in files:
+            numaCores = cfgfile['work-'+work[0]].get('numacores')
+            if not numaCores:
+                numaCores = 1
+            numa_args = utils.get_numa_args(numaCores)
+            results.append(pool.apply_async(
+                utils.startWork, ([work[0]+'-'+os.path.split(file)[1].split('.')[0], work[1]], log_dir, dict({'tid': cnt, 'binfile': file, 'numa': numa_args}, **etcArg))))
+            cnt += 1
+            if cnt >= int(cfgfile['iteration']['max_thread']):
+                cnt = 0
     pool.close()
     pool.join()
     finished = True
@@ -148,6 +161,7 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
 # 如果当前commit测试错误,则删除未还未测试的commit
 # 用于在此产生一个断点用于下次运行时恢复运行
 
+
 def breakpointSave(break_commit: dict):
     done_commits: list[dict] = []
     with open(commit_info_path, 'r') as fs:
@@ -180,7 +194,7 @@ def iteration(extra_commits):
             if cfgfile['iteration']['working_mode'] == 'multi':
                 finished1, runErr_works = Wrun(commit_log_path, etcArg)
             elif cfgfile['iteration']['working_mode'] == 'single':
-                finished1, runErr_works =  Wrun_single(commit_log_path, etcArg)
+                finished1, runErr_works = Wrun_single(commit_log_path, etcArg)
             if not finished1:
                 error_msg += 'error works:{0}\n'.format(str(runErr_works))
         else:
@@ -196,11 +210,15 @@ def iteration(extra_commits):
             # 发送消息
             mailSendMsg(
                 """autotest find a error in:
-            repo:{0}
-            commit:{1} in branch:{2}
+            repo:{0} 
+            branch:{1}
+            commit:{2}
             error msg: 
             {3}
-            """.format(cfgfile['global']['repo_url'], commit['commit'], cfgfile['global']['repo_branch'], error_msg))
+            """.format(cfgfile['global']['repo_url'],
+                       cfgfile['global']['repo_branch'],
+                       str(commit),
+                       error_msg))
             if cfgfile['iteration']['except_mode'] == 'stop':  # 如果是stop模式则直接退出并打一个断点
                 breakpointSave(commit)
                 return False
@@ -211,12 +229,11 @@ def iteration(extra_commits):
     return True
 
 
-
-
 endless = int(cfgfile['iteration']['num']) < 0
 iterations = int(cfgfile['iteration']['num'])
 while endless or iterations > 0:
-    origin_commits = utils.getAllCommitInfo(repo, int(cfgfile['pull']['n']))
+    origin_commits = utils.getAllCommitInfo(
+        repo, int(cfgfile['iteration']['pull']))
     extra_commits = utils.checkCommit(commit_info_path, origin_commits)
 
     finished = iteration(extra_commits)
@@ -228,3 +245,4 @@ while endless or iterations > 0:
         exit(-1)
     # 延迟
     time.sleep(eval(cfgfile['iteration']['end_delay']))
+print('**********all tests finished**********')

@@ -1,13 +1,47 @@
 import configparser
+from genericpath import isdir, isfile
 from logging import warning
 import re
 import os
 import git
 import subprocess
 import json
+import psutil
+import time
+import glob
+
 
 CFG_PATH = 'autotest.cfg'
 
+
+def get_file_list(path):
+    return glob.glob(path)
+
+
+def get_free_cores(n):
+    # To avoid potential conflicts, we allow CI to use SMT.
+    num_logical_core = psutil.cpu_count(logical=False)
+    core_usage = psutil.cpu_percent(interval=1, percpu=True)
+    num_window = num_logical_core // n
+    for i in range(num_window):
+        window_usage = core_usage[i * n: i * n + n]
+        if sum(window_usage) < 0.3 * n and True not in map(lambda x: x > 0.5, window_usage):
+            return (((i * n) % 128) // 64, i * n, i * n + n - 1)
+    return None
+
+def get_numa_args(n):
+    numa_args = ''
+    temp_flag = False 
+    while True:
+        numa_info = get_free_cores(int(n))
+        if numa_info:
+            numa_args = f"numactl -m {numa_info[0]} -C {numa_info[1]}-{numa_info[2]}"
+            break
+        else:
+            if not temp_flag:
+                temp_flag = True
+                print('no free cores found. will wait for free cores')
+    return numa_args
 
 class CFGReader:
     cfg_map = {'global': {}}
