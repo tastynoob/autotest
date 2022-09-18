@@ -1,4 +1,5 @@
 import argparse
+from ast import parse
 from asyncio import subprocess
 from io import TextIOWrapper
 import smtplib
@@ -9,10 +10,14 @@ from multiprocessing import Pool
 import os
 import time
 import json
-
 import utils
 
-CFG_PATH = '/media/lurker/CACHE/forLinux/openxiangshan/autotest/script/temp.cfg'
+
+parser = argparse.ArgumentParser(description='specify a cfg file')
+parser.add_argument('-f', '--file', help='cfg file path')
+args = parser.parse_args()
+
+CFG_PATH = args.file
 
 # check dir
 cfgfile = utils.CFGReader(CFG_PATH)
@@ -110,7 +115,6 @@ def Wrun_single(log_dir, etcArg):
     cnt = 0
     for work in work_items:
         files = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
-        print(files)
         for file in files:
             numaCores = cfgfile['work-'+work[0]].get('numacores')
             if not numaCores:
