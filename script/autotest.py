@@ -113,6 +113,7 @@ def Wrun_single(log_dir, etcArg):
     results = []
     work_items = list(works.items())
     cnt = 0
+    names = []
     for work in work_items:
         files = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
         for file in files:
@@ -120,8 +121,13 @@ def Wrun_single(log_dir, etcArg):
             if not numaCores:
                 numaCores = 1
             numa_args = utils.get_numa_args(numaCores)
-            results.append(pool.apply_async(
-                utils.startWork, ([work[0]+'-'+os.path.split(file)[1].split('.')[0], work[1]], log_dir, dict({'tid': cnt, 'binfile': file, 'numa': numa_args}, **etcArg))))
+            names.append(work[0]+'-'+os.path.split(file)[1].split('.')[0])
+            results.append(
+                pool.apply_async(
+                    utils.startWork, 
+                    ([names[-1], work[1]],
+                    log_dir, 
+                    dict({'tid': cnt, 'binfile': file, 'numa': numa_args}, **etcArg))))
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_thread']):
                 cnt = 0
@@ -131,7 +137,7 @@ def Wrun_single(log_dir, etcArg):
     runErr_works = []
     for cnt in range(len(results)):
         if not results[cnt].get():
-            runErr_works.append(work_items[cnt][0])
+            runErr_works.append(names[cnt])
             finished = False
     return finished, runErr_works
 
