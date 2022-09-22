@@ -82,7 +82,7 @@ def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
 
 
 
-def Wrun(log_dir, etcArg):
+def Wrun_multi(log_dir, etcArg):
     pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
     results = []
     work_items = list(works.items())
@@ -202,7 +202,7 @@ def iteration(extra_commits):
         if finished0:
             #######
             if cfgfile['iteration']['working_mode'] == 'multi':
-                finished1, runErr_works = Wrun(commit_log_path, etcArg)
+                finished1, runErr_works = Wrun_multi(commit_log_path, etcArg)
             elif cfgfile['iteration']['working_mode'] == 'single':
                 finished1, runErr_works = Wrun_single(commit_log_path, etcArg)
             if not finished1:
@@ -216,7 +216,6 @@ def iteration(extra_commits):
             error_msg += 'post-work running error\n'
 
         if not (finished0 and finished1 and finished2):  # 发生任何错误
-
             # 发送消息
             mailSendMsg(
                 """autotest find a error in:
