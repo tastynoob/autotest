@@ -129,7 +129,7 @@ def getBranch(cfgfile):
 # return the all commit info
 
 
-def getAllCommitInfo(repo: git.Repo, count: int) -> list[dict]:
+def getAllCommitInfo(repo: git.Repo, count: int):
     '''
     get branch's commits info:commit:hashcode,author,summary,date
     Sort by time
@@ -141,7 +141,7 @@ def getAllCommitInfo(repo: git.Repo, count: int) -> list[dict]:
     return real_log_list
 
 
-def checkCommit(commit_info_path, origin_commits: list[dict]):
+def checkCommit(commit_info_path, origin_commits):
     '''
     compare the local commits info with origin commits
     and return the extra commit
@@ -180,7 +180,7 @@ def saveCommits(commit_info_path):
 
 # get cfgfile custom works
 # return [[pre-task,task,post-task]]
-def getWorks(cfgfile: dict[str, dict]):
+def getWorks(cfgfile):
     pre_work: dict[str, list] = {}
     works: dict[str, list] = {}
     post_work: dict[str, list] = {}
@@ -209,7 +209,7 @@ def getWorks(cfgfile: dict[str, dict]):
     return (works, pre_work, post_work)
 
 
-def argReplace(coms: list[str], specArg: dict):
+def argReplace(coms, specArg: dict):
     reObj = re.compile('\$[^\$.]*\$')
     for i in range(len(coms)):
         if coms[i]:
@@ -225,7 +225,7 @@ def argReplace(coms: list[str], specArg: dict):
 # return finished
 
 
-def startWork(work: tuple[str, dict], log_dir: str, etcArg: dict[str, str]):
+def startWork(work, log_dir: str, etcArg):
     name = work[0]
     task = work[1]
     log_ = log_dir+'/'+name
