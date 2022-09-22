@@ -115,19 +115,19 @@ def Wrun_single(log_dir, etcArg):
     cnt = 0
     names = []
     for work in work_items:
-        files = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
-        for file in files:
+        files,names = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
+        for i in range(len(files)):
             numaCores = cfgfile['work-'+work[0]].get('numacores')
             if not numaCores:
                 numaCores = 1
             numa_args = utils.get_numa_args(numaCores)
-            names.append(work[0]+'-'+os.path.split(file)[1].split('.')[0])
+            names.append(work[0]+'-'+names[i])
             results.append(
                 pool.apply_async(
                     utils.startWork, 
                     ([names[-1], work[1]],
                     log_dir, 
-                    dict({'tid': cnt, 'binfile': file, 'numa': numa_args}, **etcArg))))
+                    dict({'tid': cnt, 'binfile': files[i], 'numa': numa_args}, **etcArg))))
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_thread']):
                 cnt = 0

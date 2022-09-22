@@ -56,15 +56,25 @@ class CFGReader:
 
 def get_file_list(path:str):
     files = []
-    if path.endswith('.txt'):
+    names = []
+    if path.endswith('.paths'):
         with open(path,'r') as fs:
             files = fs.read().split('\n')
-    for file in files:
-        if file.isspace():
-            pass
-        if not os.path.exists(file):
-            warning(f'can\'t load file:{file}')
-    return glob.glob(path)
+        for file in files:
+            if file.isspace():
+                pass
+            elif not os.path.exists(file):
+                warning(f'can\'t load file:{file}')
+                exit(-1)
+            else :
+                name = file.split('/')
+                names.append(name[-3]+'-'+name[-2]+'-'+name[-1].split('.')[0])
+        return files,names
+    else:
+        files = glob.glob(path)
+        for file in files:
+            names.append(os.path.split(file)[1].split('.')[0])
+    return files,names
 
 
 def get_free_cores(n):
