@@ -89,9 +89,12 @@ def Wrun_multi(log_dir, etcArg):
     cnt = 0
     for work in work_items:
         numaCores = cfgfile['work-'+work[0]].get('numacores')
+        numa_args = ''
         if not numaCores:
-            numaCores=1
-        numa_args = utils.get_numa_args(numaCores)
+            pass
+        elif int(numaCores) > 0:
+            numa_args = utils.get_numa_args(numaCores)
+            
         results.append(pool.apply_async(
             utils.startWork, (work, log_dir, dict({'tid': cnt, 'numa': numa_args}, **etcArg))))
         cnt += 1
@@ -118,9 +121,12 @@ def Wrun_single(log_dir, etcArg):
         files,names = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
         for i in range(len(files)):
             numaCores = cfgfile['work-'+work[0]].get('numacores')
+            numa_args = ''
             if not numaCores:
-                numaCores = 1
-            numa_args = utils.get_numa_args(numaCores)
+                pass
+            elif int(numaCores) > 0:
+                numa_args = utils.get_numa_args(numaCores)
+
             names.append(work[0]+'-'+names[i])
             results.append(
                 pool.apply_async(

@@ -55,25 +55,29 @@ class CFGReader:
 
 
 def get_file_list(path:str):
+    subpaths = path.split(';')
     files = []
     names = []
-    if path.endswith('.paths'):
-        with open(path,'r') as fs:
-            files = fs.read().split('\n')
-        for file in files:
-            if file.isspace():
-                pass
-            elif not os.path.exists(file):
-                warning(f'can\'t load file:{file}')
-                exit(-1)
-            else :
-                name = file.split('/')
-                names.append(name[-3]+'-'+name[-2]+'-'+name[-1].split('.')[0])
-        return files,names
-    else:
-        files = glob.glob(path)
-        for file in files:
-            names.append(os.path.split(file)[1].split('.')[0])
+    for subpath in subpaths:
+        if subpath.endswith('.paths'):
+            this_files = []
+            with open(subpath, 'r') as fs:
+                this_files = fs.read().split('\n')
+            for file in this_files:
+                if file.isspace():
+                    pass
+                elif not os.path.exists(file):
+                    warning(f'can\'t load file:{file}')
+                    exit(-1)
+                else :
+                    files.append(file)
+                    name = file.split('/')
+                    names.append(name[-3]+'-'+name[-2]+'-'+name[-1].split('.')[0])
+        else:
+            this_files = glob.glob(subpath)
+            for file in this_files:
+                files.append(file)
+                names.append(os.path.split(file)[1].split('.')[0])
     return files,names
 
 
@@ -112,7 +116,7 @@ def getBranch(cfgfile):
     '''
     try:
         repo = git.Repo(path=cfgfile['global']['working_dir'])
-    except:
+    except :
         print('can\'t to load the repo,will to pull new here')
         try:
             repo = git.Repo.clone_from(
