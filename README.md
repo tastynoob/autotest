@@ -58,10 +58,9 @@ commit.txt.old:代表上次迭代已执行完毕的commit
 ## 使用方法
 
 目前已配置好一个例子
-进入script文件夹
 输入
 ```
-python3 autotest.py
+python3 script/autotest.py -f temp1.cfg
 ```
 即可
 
