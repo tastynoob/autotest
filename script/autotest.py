@@ -2,6 +2,7 @@ import argparse
 from ast import parse
 from asyncio import subprocess
 from io import TextIOWrapper
+import random
 import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
@@ -83,7 +84,7 @@ def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
 
 
 def Wrun_multi(log_dir, etcArg):
-    pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
+    pool = Pool(processes=int(cfgfile['iteration']['max_process']))
     results = []
     work_items = list(works.items())
     cnt = 0
@@ -94,11 +95,13 @@ def Wrun_multi(log_dir, etcArg):
             pass
         elif int(numaCores) > 0:
             numa_args = utils.get_numa_args(numaCores)
-            
+        random_int = random.randint(0, 10000)
         results.append(pool.apply_async(
-            utils.startWork, (work, log_dir, dict({'tid': cnt, 'numa': numa_args}, **etcArg))))
+            utils.startWork, 
+            (work, log_dir, 
+             dict({'tid': cnt, 'random_int': random_int, 'numa': numa_args}, **etcArg))))
         cnt += 1
-        if cnt >= int(cfgfile['iteration']['max_thread']):
+        if cnt >= int(cfgfile['iteration']['max_process']):
             cnt = 0
     pool.close()
     pool.join()
@@ -112,13 +115,13 @@ def Wrun_multi(log_dir, etcArg):
 
 
 def Wrun_single(log_dir, etcArg):
-    pool = Pool(processes=int(cfgfile['iteration']['max_thread']))
+    pool = Pool(processes=int(cfgfile['iteration']['max_process']))
     results = []
     work_items = list(works.items())
     cnt = 0
     names = []
     for work in work_items:
-        files,names = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
+        files,file_names = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
         for i in range(len(files)):
             numaCores = cfgfile['work-'+work[0]].get('numacores')
             numa_args = ''
@@ -126,16 +129,17 @@ def Wrun_single(log_dir, etcArg):
                 pass
             elif int(numaCores) > 0:
                 numa_args = utils.get_numa_args(numaCores)
-
-            names.append(work[0]+'-'+names[i])
+            work_name = work[0]+'-'+file_names[i]
+            names.append(work_name)
+            random_int = random.randint(0,10000)
             results.append(
                 pool.apply_async(
                     utils.startWork, 
-                    ([names[-1], work[1]],
+                    ([work_name, work[1]],
                     log_dir, 
-                    dict({'tid': cnt, 'binfile': files[i], 'numa': numa_args}, **etcArg))))
+                     dict({'tid': cnt, 'random_int': random_int, 'binfile': files[i], 'numa': numa_args}, **etcArg))))
             cnt += 1
-            if cnt >= int(cfgfile['iteration']['max_thread']):
+            if cnt >= int(cfgfile['iteration']['max_process']):
                 cnt = 0
     pool.close()
     pool.join()

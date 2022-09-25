@@ -12,7 +12,6 @@ import time
 import glob
 
 
-
 class CFGReader:
     cfg_map = {'global': {}}
 
@@ -54,7 +53,7 @@ class CFGReader:
         return self.cfg_map.items()
 
 
-def get_file_list(path:str):
+def get_file_list(path: str):
     subpaths = path.split(';')
     files = []
     names = []
@@ -64,21 +63,23 @@ def get_file_list(path:str):
             with open(subpath, 'r') as fs:
                 this_files = fs.read().split('\n')
             for file in this_files:
+                file = file.strip()
                 if file.isspace():
                     pass
                 elif not os.path.exists(file):
                     warning(f'can\'t load file:{file}')
                     exit(-1)
-                else :
+                else:
                     files.append(file)
                     name = file.split('/')
-                    names.append(name[-3]+'-'+name[-2]+'-'+name[-1].split('.')[0])
+                    names.append(name[-3]+'-'+name[-2] +
+                                 '-'+name[-1].split('.')[0])
         else:
             this_files = glob.glob(subpath)
             for file in this_files:
                 files.append(file)
                 names.append(os.path.split(file)[1].split('.')[0])
-    return files,names
+    return files, names
 
 
 def get_free_cores(n):
@@ -108,15 +109,13 @@ def get_numa_args(n):
     return numa_args
 
 
-
-
 def getBranch(cfgfile):
     '''
     pull repo and checkout
     '''
     try:
         repo = git.Repo(path=cfgfile['global']['working_dir'])
-    except :
+    except:
         print('can\'t to load the repo,will to pull new here')
         try:
             repo = git.Repo.clone_from(
