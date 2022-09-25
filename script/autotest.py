@@ -2,6 +2,7 @@ import argparse
 from ast import parse
 from asyncio import subprocess
 from io import TextIOWrapper
+from logging import warning
 import random
 import smtplib
 from email.mime.text import MIMEText
@@ -43,13 +44,17 @@ def mailSendMsg(msg: str):
     if cfgfile['global']['debug_mode'] == 'true':
         print(msg)
     elif cfgfile['global']['debug_mode'] == 'false' and cfgfile['mail']['enable'] == 'true':
-        smtp = smtplib.SMTP()
-        smtp.connect(cfgfile['mail']['mail_host'])
-        smtp.login(cfgfile['mail']['mail_sender'],
-                   cfgfile['mail']['mail_license'])
-        for receiver in cfgfile['mail']['mail_receivers'].split(';'):
-            smtp.sendmail(cfgfile['mail']['mail_sender'], receiver, msg)
-        smtp.quit()
+        try:
+            smtp = smtplib.SMTP()
+            smtp.connect(cfgfile['mail']['mail_host'])
+            smtp.login(cfgfile['mail']['mail_sender'],
+                    cfgfile['mail']['mail_license'])
+            for receiver in cfgfile['mail']['mail_receivers'].split(';'):
+                smtp.sendmail(cfgfile['mail']['mail_sender'], receiver, msg)
+            smtp.quit()
+        except Exception as e:
+            print(msg)
+            warning("mail send fail!!,check your license and network")
 
 
 def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
