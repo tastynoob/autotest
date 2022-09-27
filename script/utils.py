@@ -219,7 +219,7 @@ def argReplace(coms, specArg: dict):
             for arg in reObj.findall(coms[i]):
                 rep = arg[1:-1]
                 var0 = str(specArg.get(rep))
-                if var0:
+                if var0 is not None:
                     coms[i] = coms[i].replace(arg, var0)
                 else:
                     warning('argReplace: [can\'t find the specarg] ' + rep)
