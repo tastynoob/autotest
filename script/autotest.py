@@ -58,7 +58,6 @@ def mailSendMsg(msg: str):
 
 
 def startMain(work, log_dir: str, etcArg):
-    name = work[0]
     task = work[1]
     log_ = log_dir
     utils.argReplace(task, dict({'sublog': log_}, **etcArg))
@@ -69,6 +68,7 @@ def startMain(work, log_dir: str, etcArg):
     other = open(log_+'/other.txt', 'w')
     other.write('**********pre-task start**********\n')
     other.flush()
+    startTime = time.time()
     # start pre-task
     pre = subprocess.run(args=task[0], shell=True, stdout=other,
                          stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
@@ -86,6 +86,9 @@ def startMain(work, log_dir: str, etcArg):
         other.flush()
         post = subprocess.run(args=task[2], shell=True, stdout=other,
                               stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+    tupTime = int(time.time()-startTime)  # 秒时间戳
+    other.write(
+        '**********runTime:{0}h:{1}m:{2}s**********\n'.format(tupTime // 3600, (tupTime % 3600)//60, (tupTime % 3600)%60))
     # start except-task
     if not (post and post.returncode == 0):
         other.write(
