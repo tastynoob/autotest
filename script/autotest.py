@@ -34,7 +34,7 @@ repo = utils.getBranch(cfgfile)
 
 
 if not os.path.exists(cfgfile['global']['log_root']):
-    os.mkdir(cfgfile['global']['log_root'])
+    os.makedirs(cfgfile['global']['log_root'])
 
 # 工作逻辑:获取远程commit并与当前脚本的本地测试commit比较,获取新添加的commit
 # 对新添加的commit进行测试,测试完毕,等待一段时间再次获取远程commit
@@ -48,13 +48,66 @@ def mailSendMsg(msg: str):
             smtp = smtplib.SMTP()
             smtp.connect(cfgfile['mail']['mail_host'])
             smtp.login(cfgfile['mail']['mail_sender'],
-                    cfgfile['mail']['mail_license'])
+                       cfgfile['mail']['mail_license'])
             for receiver in cfgfile['mail']['mail_receivers'].split(';'):
                 smtp.sendmail(cfgfile['mail']['mail_sender'], receiver, msg)
             smtp.quit()
         except Exception as e:
             print(msg)
             warning("mail send fail!!,check your license and network")
+
+
+def startMain(work, log_dir: str, etcArg):
+    name = work[0]
+    task = work[1]
+    log_ = log_dir
+    utils.argReplace(task, dict({'sublog': log_}, **etcArg))
+    if not os.path.exists(log_):
+        os.makedirs(log_)
+    taskout = open(log_+'/taskout.txt', 'w')
+    taskerr = open(log_+'/taskerr.txt', 'w')
+    other = open(log_+'/other.txt', 'w')
+    other.write('**********pre-task start**********\n')
+    other.flush()
+    # start pre-task
+    pre = subprocess.run(args=task[0], shell=True, stdout=other,
+                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+    # start task
+    ret = None
+    if pre.returncode == 0:
+        ret = subprocess.run(args=task[1], shell=True, stdout=taskout,
+                             stderr=taskerr, stdin=None, check=False, encoding='utf-8')
+    taskout.close()
+    taskerr.close()
+    # start post-task
+    post = None
+    if ret and ret.returncode == 0:
+        other.write('**********task finished,post-task start**********\n')
+        other.flush()
+        post = subprocess.run(args=task[2], shell=True, stdout=other,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+    # start except-task
+    if not (post and post.returncode == 0):
+        other.write(
+            '**********running error,except-task start**********\n')
+        other.flush()
+        exce = subprocess.run(args=task[3], shell=True, stdout=other,
+                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+        other.close()
+        mailSendMsg(
+            """autotest find a error in:
+            repo:{0} 
+            branch:{1}
+            work:{2}
+            log:{3}
+            """.format(cfgfile['global']['repo_url'],
+                       cfgfile['global']['repo_branch'],
+                       work[0],
+                       log_
+                       ))
+        return False
+    other.close()
+    return True
 
 
 def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
@@ -86,8 +139,6 @@ def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
     return True
 
 
-
-
 def Wrun_multi(log_dir, etcArg):
     pool = Pool(processes=int(cfgfile['iteration']['max_process']))
     results = []
@@ -102,8 +153,8 @@ def Wrun_multi(log_dir, etcArg):
             numa_args = utils.get_numa_args(numaCores)
         random_int = random.randint(0, 10000)
         results.append(pool.apply_async(
-            utils.startWork, 
-            (work, log_dir, 
+            startMain,
+            (work, log_dir+'/'+work[0],
              dict({'tid': cnt, 'random_int': random_int, 'numa': numa_args}, **etcArg))))
         cnt += 1
         if cnt >= int(cfgfile['iteration']['max_process']):
@@ -126,7 +177,8 @@ def Wrun_single(log_dir, etcArg):
     cnt = 0
     names = []
     for work in work_items:
-        files,file_names = utils.get_file_list(cfgfile['work-'+work[0]]['binpath'])
+        files, sublog = utils.get_file_list(
+            cfgfile['work-'+work[0]]['binpath'])
         for i in range(len(files)):
             numaCores = cfgfile['work-'+work[0]].get('numacores')
             numa_args = ''
@@ -134,14 +186,13 @@ def Wrun_single(log_dir, etcArg):
                 pass
             elif int(numaCores) > 0:
                 numa_args = utils.get_numa_args(numaCores)
-            work_name = work[0]+'-'+file_names[i]
-            names.append(work_name)
-            random_int = random.randint(0,10000)
+            names.append(sublog[i])
+            random_int = random.randint(0, 10000)
             results.append(
                 pool.apply_async(
-                    utils.startWork, 
-                    ([work_name, work[1]],
-                    log_dir, 
+                    startMain,
+                    (work,
+                     log_dir+'/'+work[0]+'/'+sublog[i],
                      dict({'tid': cnt, 'random_int': random_int, 'binfile': files[i], 'numa': numa_args}, **etcArg))))
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_process']):
@@ -257,7 +308,7 @@ endless = int(cfgfile['iteration']['num']) < 0
 iterations = int(cfgfile['iteration']['num'])
 while endless or iterations > 0:
     origin_commits = utils.getAllCommitInfo(
-        repo, int(cfgfile['iteration']['pull']))
+        repo, cfgfile['iteration']['pull'])
     extra_commits = utils.checkCommit(commit_info_path, origin_commits)
 
     finished = iteration(extra_commits)

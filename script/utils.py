@@ -1,6 +1,4 @@
 import configparser
-from curses.ascii import isspace
-from genericpath import isdir, isfile
 from logging import warning
 import re
 import os
@@ -53,33 +51,50 @@ class CFGReader:
         return self.cfg_map.items()
 
 
+def splitfile(str: str, i):
+    if i <= 0:
+        i = 1
+    subidx = len(str)
+    if i >= subidx:
+        print("the file parser error!")
+        exit(-1)
+    for _ in range(i):
+        subidx = str.rfind('/', 0, subidx)-1
+        if subidx < 0:
+            print("the file parser error!")
+            exit(-1)
+    return str[subidx+2:]
+
+# 返回文件名和子log文件路径
+
+
 def get_file_list(path: str):
     subpaths = path.split(';')
     files = []
-    names = []
+    sublogs = []
+    # 获取所有的文件行
+    lines:list[str] = []
     for subpath in subpaths:
         if subpath.endswith('.paths'):
-            this_files = []
             with open(subpath, 'r') as fs:
-                this_files = fs.read().split('\n')
-            for file in this_files:
-                file = file.strip()
-                if file.isspace():
-                    pass
-                elif not os.path.exists(file):
-                    warning(f'can\'t load file:{file}')
-                    exit(-1)
-                else:
-                    files.append(file)
-                    name = file.split('/')
-                    names.append(name[-3]+'-'+name[-2] +
-                                 '-'+name[-1].split('.')[0])
+                lines += fs.read().split('\n')
         else:
-            this_files = glob.glob(subpath)
-            for file in this_files:
+            lines.append(subpath)
+    for dual in lines:
+        dual = dual.strip()
+        res: str = dual.split(' ')
+        glob_file = res[0]
+        ser = res[-1] if len(res)>1 else 1
+        for file in glob.glob(glob_file):
+            if os.path.exists(file):
                 files.append(file)
-                names.append(os.path.split(file)[1].split('.')[0])
-    return files, names
+            else:
+                warning("can\'t find the file:"+file)
+            name = splitfile(file, int(ser))
+            # 去掉后缀名
+            name = name.split('.')[0]
+            sublogs.append(name)
+    return files, sublogs
 
 
 def get_free_cores(n):
@@ -132,15 +147,26 @@ def getBranch(cfgfile):
 # return the all commit info
 
 
-def getAllCommitInfo(repo: git.Repo, count: int):
+def getAllCommitInfo(repo: git.Repo, info: str):
     '''
     get branch's commits info:commit:hashcode,author,summary,date
     Sort by time
     '''
-    commit_log = repo.git.log('--pretty={"commit":"%h","author":"%an","summary":"%s","date":"%cd"}', max_count=count,
-                              date='format:%Y-%m-%d %H:%M')
-    log_list = commit_log.split("\n")
-    real_log_list = [eval(item) for item in log_list]
+    real_log_list = []
+    if info.isdigit():
+        commit_log = repo.git.log(
+            '--pretty={"commit":"%h","author":"%an","summary":"%s","date":"%cd"}', max_count=int(info), date='format:%Y-%m-%d %H:%M')
+        log_list = commit_log.split("\n")
+        real_log_list = [eval(item) for item in log_list]
+    else:
+        commits = info.split(';')
+        for commit in commits:
+            real_log_list.append({
+                "commit": commit,
+                "author": "None",
+                "summary": "None",
+                "date": "None"
+            })
     return real_log_list
 
 
@@ -226,47 +252,3 @@ def argReplace(coms, specArg: dict):
 
 # start one work
 # return finished
-
-
-def startWork(work, log_dir: str, etcArg):
-    name = work[0]
-    task = work[1]
-    log_ = log_dir+'/'+name
-    argReplace(task, dict({'sublog': log_}, **etcArg))
-    if not os.path.exists(log_):
-        os.mkdir(log_)
-
-    taskout = open(log_+'/taskout.txt', 'w')
-    taskerr = open(log_+'/taskerr.txt', 'w')
-    other = open(log_+'/other.txt', 'w')
-    other.write('**********pre-task start**********\n')
-    other.flush()
-    # start pre-task
-    pre = subprocess.run(args=task[0], shell=True, stdout=other,
-                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-
-    # start task
-    ret = None
-    if pre.returncode == 0:
-        ret = subprocess.run(args=task[1], shell=True, stdout=taskout,
-                             stderr=taskerr, stdin=None, check=False, encoding='utf-8')
-    taskout.close()
-    taskerr.close()
-    # start post-task
-    post = None
-    if ret and ret.returncode == 0:
-        other.write('**********task finished,post-task start**********\n')
-        other.flush()
-        post = subprocess.run(args=task[2], shell=True, stdout=other,
-                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-    # start except-task
-    if not (post and post.returncode == 0):
-        other.write(
-            '**********running error,except-task start**********\n')
-        other.flush()
-        exce = subprocess.run(args=task[3], shell=True, stdout=other,
-                              stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
-        other.close()
-        return False
-    other.close()
-    return True
