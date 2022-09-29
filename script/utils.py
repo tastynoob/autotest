@@ -140,18 +140,21 @@ def getBranch(cfgfile):
             exit(-1)
     try:
         repo.git.checkout(cfgfile['global']['repo_branch'])
+        repo.git.pull()
     except:
-        print('cant find the branch,exit')
+        print('repo init error,exit')
         exit(-1)
     return repo
 # return the all commit info
 
 
-def getAllCommitInfo(repo: git.Repo, info: str):
+def getAllCommitInfo(cfgfile,repo: git.Repo, info: str):
     '''
     get branch's commits info:commit:hashcode,author,summary,date
     Sort by time
     '''
+    repo.git.checkout(cfgfile['global']['repo_branch'])
+    repo.git.pull()
     real_log_list = []
     if info.isdigit():
         commit_log = repo.git.log(

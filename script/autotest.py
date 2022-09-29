@@ -310,7 +310,7 @@ def iteration(extra_commits):
 endless = int(cfgfile['iteration']['num']) < 0
 iterations = int(cfgfile['iteration']['num'])
 while endless or iterations > 0:
-    origin_commits = utils.getAllCommitInfo(
+    origin_commits = utils.getAllCommitInfo(cfgfile,
         repo, cfgfile['iteration']['pull'])
     extra_commits = utils.checkCommit(commit_info_path, origin_commits)
 
