@@ -210,7 +210,8 @@ def Wrun_single(log_dir, etcArg):
             finished = False
     return finished, runErr_works
 
-
+#发生任何错误,均会直接执行except-task
+#返回post-work是否执行正确,如果前面任务执行错误,则直接执行post-work的except-task
 def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
     '''
     执行post-work
@@ -220,11 +221,13 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
     log_file.write('**********post-work:task start**********\n')
     log_file.flush()
     # post-work:task start
-    ret = subprocess.run(args=task[1], shell=True, stdout=log_file,
-                         stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
+    ret = None 
+    if work_finished:
+        ret = subprocess.run(args=task[1], shell=True, stdout=log_file,
+                            stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
     # post-work:post-task start
     post = None
-    if ret.returncode == 0:
+    if ret and ret.returncode == 0:
         log_file.write('**********post-work:post-task start**********\n')
         log_file.flush()
         post = subprocess.run(args=task[2], shell=True, stdout=log_file,
@@ -234,7 +237,7 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
         subprocess.run(args=task[3], shell=True, stdout=None,
                        stderr=subprocess.STDOUT, stdin=None, check=False, encoding='utf-8')
         # 返回post-work的结果
-        return (post and post.returncode == 0)
+        return False
     return True
 
 # 如果当前commit测试错误,则删除未还未测试的commit
@@ -281,7 +284,7 @@ def iteration(extra_commits):
         # 它会自动关闭commit_log_file
         finished2 = Wend(finished1, commit_log_path,
                          commit_log_file, etcArg)
-        if not finished2:
+        if finished1 and (not finished2):#post-work执行发生错误
             error_msg += 'post-work running error\n'
 
         if not (finished0 and finished1 and finished2):  # 发生任何错误
