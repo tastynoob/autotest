@@ -93,8 +93,6 @@ def get_file_list(path: str):
             name = splitfile(file, int(ser))
             # 去掉后缀名
             name =  os.path.splitext(name)[0]
-            
-            name = name.split('.')[0]
             sublogs.append(name)
     return files, sublogs
 
