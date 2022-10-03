@@ -91,11 +91,9 @@ def tpool_alloc(n):
     return numa_args , C
 def tpool_free(n):
     global tpoolId, tlock, tcfgfile
-    print(n)
     if tcfgfile['iteration']['smode'] == 'st':
         for i in range(n[0],n[1]+1):
             tpoolId[0].append(i)
-    print(tpoolId)
 
 
 class CFGReader:
