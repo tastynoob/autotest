@@ -13,6 +13,7 @@ import os
 import time
 import json
 import utils
+import psutil
 
 
 #如何添加自定义的特殊变量
@@ -28,6 +29,7 @@ args = parser.parse_args()
 
 CFG_PATH = args.file
 
+
 # check dir
 cfgfile = utils.CFGReader(CFG_PATH)
 commit_info_path = cfgfile['global']['log_root'] + '/commits.txt'
@@ -42,6 +44,9 @@ repo = utils.getBranch(cfgfile)
 
 if not os.path.exists(cfgfile['global']['log_root']):
     os.makedirs(cfgfile['global']['log_root'])
+#初始化tpoolId
+utils.tpool_init(cfgfile)
+
 
 # 工作逻辑:获取远程commit并与当前脚本的本地测试commit比较,获取新添加的commit
 # 对新添加的commit进行测试,测试完毕,等待一段时间再次获取远程commit
@@ -67,7 +72,11 @@ def mailSendMsg(msg: str):
 def startMain(work, log_dir: str, etcArg):
     task = work[1]
     log_ = log_dir
-    utils.argReplace(task, dict({'sublog': log_}, **etcArg))
+    #
+    numaCores = cfgfile['work-'+work[0]].get('numacores')
+    numa_args,C = utils.tpool_alloc(int(numaCores))
+    #
+    utils.argReplace(task, dict({'sublog': log_, 'numa': numa_args}, **etcArg))
     if not os.path.exists(log_):
         os.makedirs(log_)
     taskout = open(log_+'/taskout.txt', 'w')
@@ -115,8 +124,10 @@ def startMain(work, log_dir: str, etcArg):
                        work[0],
                        log_
                        ))
+        utils.tpool_free(C)
         return False
     other.close()
+    utils.tpool_free(C)
     return True
 
 
@@ -155,17 +166,11 @@ def Wrun_multi(log_dir, etcArg):
     work_items = list(works.items())
     cnt = 0
     for work in work_items:
-        numaCores = cfgfile['work-'+work[0]].get('numacores')
-        numa_args = ''
-        if not numaCores:
-            pass
-        elif int(numaCores) > 0:
-            numa_args = utils.get_numa_args(numaCores)
         random_int = random.randint(0, 10000)
         results.append(pool.apply_async(
             startMain,
             (work, log_dir+'/'+work[0],
-             dict({'tid': cnt, 'random_int': random_int, 'numa': numa_args}, **etcArg))))#添加自定义特殊变量
+             dict({'tid': cnt, 'random_int': random_int}, **etcArg))))#添加自定义特殊变量
         cnt += 1
         if cnt >= int(cfgfile['iteration']['max_process']):
             cnt = 0
@@ -190,12 +195,6 @@ def Wrun_single(log_dir, etcArg):
         files, sublog = utils.get_file_list(
             cfgfile['work-'+work[0]]['binpath'])
         for i in range(len(files)):
-            numaCores = cfgfile['work-'+work[0]].get('numacores')
-            numa_args = ''
-            if not numaCores:
-                pass
-            elif int(numaCores) > 0:
-                numa_args = utils.get_numa_args(numaCores)
             names.append(sublog[i])
             random_int = random.randint(0, 10000)
             results.append(
@@ -203,7 +202,7 @@ def Wrun_single(log_dir, etcArg):
                     startMain,
                     (work,
                      log_dir+'/'+work[0]+'/'+sublog[i],
-                     dict({'tid': cnt, 'random_int': random_int, 'binfile': files[i], 'numa': numa_args}, **etcArg))))  # 添加自定义特殊变量
+                     dict({'tid': cnt, 'random_int': random_int, 'binfile': files[i]}, **etcArg))))  # 添加自定义特殊变量
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_process']):
                 cnt = 0

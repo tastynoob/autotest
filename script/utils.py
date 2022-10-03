@@ -8,6 +8,94 @@ import json
 import psutil
 import time
 import glob
+import multiprocessing
+
+# 初始化线程池(实际上是核数)
+
+manger = multiprocessing.Manager()
+tpoolId = manger.dict({0:[]})
+tlock = manger.Lock()
+tcfgfile = {}
+
+def tpool_init(cfgfile):
+    global tpoolId,tlock,tcfgfile
+    tcfgfile = cfgfile
+    srange = cfgfile['iteration']['srange'].split(',')
+    
+    tpoolId = manger.dict({0:[i for i in range(int(srange[0]), int(srange[-1]))]})
+    tlock = manger.Lock()
+
+def __dy_alloc(n):
+    temp_flag = False
+    while True:
+        # To avoid potential conflicts, we allow CI to use SMT.
+        num_logical_core = psutil.cpu_count(logical=False)
+        core_usage = psutil.cpu_percent(interval=1, percpu=True)
+        num_window = num_logical_core // n
+        for i in range(num_window):
+            window_usage = core_usage[i * n: i * n + n]
+            if sum(window_usage) < 0.3 * n and True not in map(lambda x: x > 0.5, window_usage):
+                return ((i * n) % 128) // 64, (i * n, i * n + n - 1)
+        if not temp_flag:
+            temp_flag = True
+            print('no free cores found. will wait for free cores')
+        
+#numa_args = f"numactl -m {numa_info[0]} -C {numa_info[1]}-{numa_info[2]}"
+def __st_alloc(n):
+    global tpoolId, tlock, tcfgfile
+    print(tpoolId[0])
+    temp_flag=False
+    while True:
+        if len(tpoolId[0]) < n:
+            pass
+        else:
+            tlock.acquire()
+            tpoolId[0].sort()
+            alloced = [tpoolId[0][0]]
+            if n==1:
+                tpoolId[0] = tpoolId[0][1:]
+                return (alloced[0],alloced[-1])
+            st = 0
+            for i in range(1,len(tpoolId[0])):
+                if len(alloced) == n:
+                    tpoolId[0] = tpoolId[0][:st] + tpoolId[0][i:]
+                    return (alloced[0],alloced[-1])
+                if tpoolId[0][i-1]+1 == tpoolId[0][i]:
+                    alloced.append(tpoolId[0][i])
+                else:
+                    alloced = [tpoolId[0][i]]
+                    st = i
+            tlock.release()
+        if not temp_flag:
+            temp_flag = True
+            print('no free cores found. will wait for free cores')
+        time.sleep(0.5)
+            
+def tpool_alloc(n):
+    if n is None :
+        return '', [-1, -1]
+    if n < 1:
+        return '',[-1,-1]
+    numa_args=''
+    M=None
+    C=None
+    if tcfgfile['iteration']['smode'] == 'st':
+        M = '0'
+        C = __st_alloc(n)
+    elif tcfgfile['iteration']['smode'] == 'dy':
+        M,C = __dy_alloc(n)
+    else:
+        print("error iteration-smode")
+        exit(-1)
+    numa_args = f"numactl -m {M} -C {C[0]}-{C[1]}"
+    return numa_args , C
+def tpool_free(n):
+    global tpoolId, tlock, tcfgfile
+    print(n)
+    if tcfgfile['iteration']['smode'] == 'st':
+        for i in range(n[0],n[1]+1):
+            tpoolId[0].append(i)
+    print(tpoolId)
 
 
 class CFGReader:
@@ -73,7 +161,7 @@ def get_file_list(path: str):
     files = []
     sublogs = []
     # 获取所有的文件行
-    lines:list[str] = []
+    lines: list[str] = []
     for subpath in subpaths:
         if subpath.endswith('.paths'):
             with open(subpath, 'r') as fs:
@@ -84,7 +172,7 @@ def get_file_list(path: str):
         dual = dual.strip()
         res: str = dual.split(' ')
         glob_file = res[0]
-        ser = res[-1] if len(res)>1 else 1
+        ser = res[-1] if len(res) > 1 else 1
         for file in glob.glob(glob_file):
             if os.path.exists(file):
                 files.append(file)
@@ -92,36 +180,16 @@ def get_file_list(path: str):
                 warning("can\'t find the file:"+file)
             name = splitfile(file, int(ser))
             # 去掉后缀名
-            name =  os.path.splitext(name)[0]
+            name = os.path.splitext(name)[0]
             sublogs.append(name)
     return files, sublogs
 
 
-def get_free_cores(n):
-    # To avoid potential conflicts, we allow CI to use SMT.
-    num_logical_core = psutil.cpu_count(logical=False)
-    core_usage = psutil.cpu_percent(interval=1, percpu=True)
-    num_window = num_logical_core // n
-    for i in range(num_window):
-        window_usage = core_usage[i * n: i * n + n]
-        if sum(window_usage) < 0.3 * n and True not in map(lambda x: x > 0.5, window_usage):
-            return (((i * n) % 128) // 64, i * n, i * n + n - 1)
-    return None
 
 
-def get_numa_args(n):
-    numa_args = ''
-    temp_flag = False
-    while True:
-        numa_info = get_free_cores(int(n))
-        if numa_info:
-            numa_args = f"numactl -m {numa_info[0]} -C {numa_info[1]}-{numa_info[2]}"
-            break
-        else:
-            if not temp_flag:
-                temp_flag = True
-                print('no free cores found. will wait for free cores')
-    return numa_args
+
+def free_numa_cores(n):
+    pass
 
 
 def getBranch(cfgfile):
@@ -148,7 +216,7 @@ def getBranch(cfgfile):
 # return the all commit info
 
 
-def getAllCommitInfo(cfgfile,repo: git.Repo, info: str):
+def getAllCommitInfo(cfgfile, repo: git.Repo, info: str):
     '''
     get branch's commits info:commit:hashcode,author,summary,date
     Sort by time
