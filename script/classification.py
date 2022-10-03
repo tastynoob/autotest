@@ -2,21 +2,22 @@ from genericpath import isdir, isfile
 import re
 import os
 
-work_dir = "/media/lurker/CACHE/forLinux/openxiangshan/autotest/workspace/log_root/6248ade/test-diff"
-binPath = "/media/lurker/CACHE/forLinux/openxiangshan/autotest/test"
+work_dir = "/nfs/home/xuyan/autotest/workspace/log_root/97e1b5399/test-diff"
+binPath = "/nfs/home/share/test-workloads/test-diff-on"
 suffix = ".bin"
-outfilename = "bintest"
+outfilename = "diff-on-bin"
 
 other_files = {}
 
 pattern = re.compile(
     r"\*\*\*\*\*\*\*\*\*\*runTime:(\d+)h:(\d+)m:(\d+)s\*\*\*\*\*\*\*\*\*\*")
 
+
 def filepaser(filepath):
     match = ()
     with open(filepath) as fs:
         infos = fs.read().split('\n')
-        for info in infos :
+        for info in infos:
             info = info.strip()
             if info.startswith('**********runTime:'):
                 match = pattern.match(info).groups()
@@ -41,6 +42,6 @@ def find_otherfile(path: dir):
 
 find_otherfile(work_dir)
 other_files = sorted(other_files.items(), key=lambda x: x[1], reverse=True)
-with open(outfilename+'.paths','w') as fs:
+with open(outfilename+'.paths', 'w') as fs:
     for file in other_files:
         fs.write(file[0]+'\n')
