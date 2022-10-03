@@ -15,6 +15,13 @@ import json
 import utils
 
 
+#如何添加自定义的特殊变量
+#在下面中找到Wstart,Wrun_multi,Wrun_single,Wend4个函数
+#分别对应pre-work,multi模式work,single模式work,post-work
+#在其中找到"#添加自定义特殊变量"注释,添加字典即可
+
+
+
 parser = argparse.ArgumentParser(description='specify a cfg file')
 parser.add_argument('-f', '--file', help='cfg file path')
 args = parser.parse_args()
@@ -118,7 +125,7 @@ def Wstart(log_dir, log_file: TextIOWrapper, etcArg: dict):
     执行pre-work
     '''
     task = pre_work.get('pre-work').copy()
-    utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))
+    utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))  # 添加自定义特殊变量
     log_file.write('**********pre-work:pre-task start**********\n')
     log_file.flush()
     # pre-work:pre-task
@@ -158,7 +165,7 @@ def Wrun_multi(log_dir, etcArg):
         results.append(pool.apply_async(
             startMain,
             (work, log_dir+'/'+work[0],
-             dict({'tid': cnt, 'random_int': random_int, 'numa': numa_args}, **etcArg))))
+             dict({'tid': cnt, 'random_int': random_int, 'numa': numa_args}, **etcArg))))#添加自定义特殊变量
         cnt += 1
         if cnt >= int(cfgfile['iteration']['max_process']):
             cnt = 0
@@ -196,7 +203,7 @@ def Wrun_single(log_dir, etcArg):
                     startMain,
                     (work,
                      log_dir+'/'+work[0]+'/'+sublog[i],
-                     dict({'tid': cnt, 'random_int': random_int, 'binfile': files[i], 'numa': numa_args}, **etcArg))))
+                     dict({'tid': cnt, 'random_int': random_int, 'binfile': files[i], 'numa': numa_args}, **etcArg))))  # 添加自定义特殊变量
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_process']):
                 cnt = 0
@@ -217,7 +224,7 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
     执行post-work
     '''
     task = post_work.get('post-work').copy()
-    utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))
+    utils.argReplace(task, dict({'sublog': log_dir}, **etcArg))  # 添加自定义特殊变量
     log_file.write('**********post-work:task start**********\n')
     log_file.flush()
     # post-work:task start

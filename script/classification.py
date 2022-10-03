@@ -2,9 +2,15 @@ from genericpath import isdir, isfile
 import re
 import os
 
+#该脚本用于对运行好的测试进行时间排序
+
+#测试对象运行结果的输出路径
 work_dir = "/nfs/home/xuyan/autotest/workspace/log_root/97e1b5399/test-diff"
+#测试对象的存放路径
 binPath = "/nfs/home/share/test-workloads/test-diff-on"
+#测试对象的后缀名
 suffix = ".bin"
+#输出文件名,会自动添加上.paths后缀
 outfilename = "diff-on-bin"
 
 other_files = {}

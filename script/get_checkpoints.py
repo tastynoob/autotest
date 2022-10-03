@@ -9,6 +9,7 @@ import time
 
 import psutil
 
+#该脚本主要是获取所有checkpoints路径并输出到checkpoints.paths中
 
 def load_all_gcpt(gcpt_path, json_path):
     all_gcpt = []
