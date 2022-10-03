@@ -43,13 +43,12 @@ def __dy_alloc(n):
 #numa_args = f"numactl -m {numa_info[0]} -C {numa_info[1]}-{numa_info[2]}"
 def __st_alloc(n):
     global tpoolId, tlock, tcfgfile
-    print(tpoolId[0])
     temp_flag=False
     while True:
         if len(tpoolId[0]) < n:
             pass
         else:
-            tlock.acquire()
+
             tpoolId[0].sort()
             alloced = [tpoolId[0][0]]
             if n==1:
@@ -65,7 +64,6 @@ def __st_alloc(n):
                 else:
                     alloced = [tpoolId[0][i]]
                     st = i
-            tlock.release()
         if not temp_flag:
             temp_flag = True
             print('no free cores found. will wait for free cores')
@@ -93,8 +91,7 @@ def tpool_free(n):
     global tpoolId, tlock, tcfgfile
     if tcfgfile['iteration']['smode'] == 'st':
         for i in range(n[0],n[1]+1):
-            tpoolId[0].append(i)
-
+            tpoolId[0]+=[i]
 
 class CFGReader:
     cfg_map = {'global': {}}

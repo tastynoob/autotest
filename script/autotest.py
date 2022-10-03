@@ -74,7 +74,10 @@ def startMain(work, log_dir: str, etcArg):
     log_ = log_dir
     #
     numaCores = cfgfile['work-'+work[0]].get('numacores')
+    utils.tlock.acquire()
+    print(utils.tpoolId)
     numa_args,C = utils.tpool_alloc(int(numaCores))
+    utils.tlock.release()
     #
     utils.argReplace(task, dict({'sublog': log_, 'numa': numa_args}, **etcArg))
     if not os.path.exists(log_):
@@ -124,10 +127,14 @@ def startMain(work, log_dir: str, etcArg):
                        work[0],
                        log_
                        ))
+        utils.tlock.acquire()
         utils.tpool_free(C)
+        utils.tlock.release()
         return False
     other.close()
+    utils.tlock.acquire()
     utils.tpool_free(C)
+    utils.tlock.release()
     return True
 
 
@@ -206,6 +213,7 @@ def Wrun_single(log_dir, etcArg):
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_process']):
                 cnt = 0
+            #time.sleep(0.5)
     pool.close()
     pool.join()
     finished = True
