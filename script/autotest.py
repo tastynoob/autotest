@@ -75,7 +75,6 @@ def startMain(work, log_dir: str, etcArg):
     #
     numaCores = cfgfile['work-'+work[0]].get('numacores')
     utils.tlock.acquire()
-    print(utils.tpoolId)
     numa_args,C = utils.tpool_alloc(int(numaCores))
     utils.tlock.release()
     #
