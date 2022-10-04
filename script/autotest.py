@@ -76,7 +76,7 @@ def startMain(work, log_dir: str, etcArg):
     #
     numaCores = cfgfile['work-'+work[0]].get('numacores')
     utils.tlock.acquire()
-    numa_args,C = utils.tpool_alloc(int(numaCores))
+    numa_args,C = utils.tpool_alloc(numaCores)
     utils.tlock.release()
     #
     utils.argReplace(task, dict({'sublog': log_, 'numa': numa_args}, **etcArg))
@@ -213,7 +213,6 @@ def Wrun_single(log_dir, etcArg):
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_process']):
                 cnt = 0
-            #time.sleep(0.5)
     pool.close()
     pool.join()
     finished = True

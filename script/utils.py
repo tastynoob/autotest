@@ -1,3 +1,4 @@
+from cmath import inf
 import configparser
 from logging import warning
 import re
@@ -71,17 +72,18 @@ def __st_alloc(n):
             
 def tpool_alloc(n):
     if n is None :
+        warning("can't find the numacores specArg,using numacores=0")
         return '', [-1, -1]
-    if n < 1:
+    if int(n) < 1:
         return '',[-1,-1]
     numa_args=''
     M=None
     C=None
     if tcfgfile['iteration']['smode'] == 'st':
         M = '0'
-        C = __st_alloc(n)
+        C = __st_alloc(int(n))
     elif tcfgfile['iteration']['smode'] == 'dy':
-        M,C = __dy_alloc(n)
+        M,C = __dy_alloc(int(n))
     else:
         print("error iteration-smode")
         exit(-1)
@@ -153,7 +155,7 @@ def splitfile(str: str, i):
 
 def get_file_list(path: str):
     subpaths = path.split(';')
-    files = []
+    sargs = []
     sublogs = []
     # 获取所有的文件行
     lines: list[str] = []
@@ -165,19 +167,37 @@ def get_file_list(path: str):
             lines.append(subpath)
     for dual in lines:
         dual = dual.strip()
-        res: str = dual.split(' ')
-        glob_file = res[0]
-        ser = res[-1] if len(res) > 1 else 1
-        for file in glob.glob(glob_file):
+        dual = ' '.join(dual.split())
+        # 参数输入模式,格式:'参数 log路径 0(必选) '
+        #比如: -d=0 -w=1 test 0
+        if len(dual.split(' ')) > 2:
+            info = dual[0:dual.rfind(' ')]
+            idx = info.rfind(' ')
+            name = info[idx+1:0]
+            info = info[0:idx]
+            sargs.append(info)
+            sublogs.append(name)
+            continue
+        #路径搜索模式,格式:'bin路径 分类级数'
+        #比如: test/binfile.bin 2
+        if dual == '':
+            continue
+        idx = dual.rfind(' ')
+        info = dual 
+        ser = 1
+        if idx > 0 and dual[idx+1:].isdigit():
+            info = dual[0:idx]
+            ser = int(dual[idx+1:])
+        for file in glob.glob(info):
             if os.path.exists(file):
-                files.append(file)
+                sargs.append(file)
             else:
                 warning("can\'t find the file:"+file)
             name = splitfile(file, int(ser))
             # 去掉后缀名
             name = os.path.splitext(name)[0]
             sublogs.append(name)
-    return files, sublogs
+    return sargs, sublogs
 
 
 
