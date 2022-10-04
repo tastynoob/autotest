@@ -70,6 +70,7 @@ def mailSendMsg(msg: str):
 
 
 def startMain(work, log_dir: str, etcArg):
+    time.sleep(random.random())
     task = work[1]
     log_ = log_dir
     #
