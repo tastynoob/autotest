@@ -49,7 +49,7 @@ def __st_alloc(n):
         if len(tpoolId[0]) < n:
             pass
         else:
-
+            tlock.acquire()
             tpoolId[0].sort()
             alloced = [tpoolId[0][0]]
             if n==1:
@@ -59,12 +59,14 @@ def __st_alloc(n):
             for i in range(1,len(tpoolId[0])):
                 if len(alloced) == n:
                     tpoolId[0] = tpoolId[0][:st] + tpoolId[0][i:]
+                    tlock.release()
                     return (alloced[0],alloced[-1])
                 if tpoolId[0][i-1]+1 == tpoolId[0][i]:
                     alloced.append(tpoolId[0][i])
                 else:
                     alloced = [tpoolId[0][i]]
                     st = i
+            tlock.release()
         if not temp_flag:
             temp_flag = True
             print('no free cores found. will wait for free cores')

@@ -75,9 +75,9 @@ def startMain(work, log_dir: str, etcArg):
     log_ = log_dir
     #
     numaCores = cfgfile['work-'+work[0]].get('numacores')
-    utils.tlock.acquire()
+    #utils.tlock.acquire()
     numa_args,C = utils.tpool_alloc(numaCores)
-    utils.tlock.release()
+    #utils.tlock.release()
     #
     utils.argReplace(task, dict({'sublog': log_, 'numa': numa_args}, **etcArg))
     if not os.path.exists(log_):
@@ -120,10 +120,12 @@ def startMain(work, log_dir: str, etcArg):
             """autotest find a error in:
             repo:{0} 
             branch:{1}
-            work:{2}
-            log:{3}
+            commit:{2}
+            work:{3}
+            log:{4}
             """.format(cfgfile['global']['repo_url'],
                        cfgfile['global']['repo_branch'],
+                       etcArg['commit'],
                        work[0],
                        log_
                        ))
@@ -278,7 +280,7 @@ def iteration(extra_commits):
         if not os.path.exists(commit_log_path):
             os.mkdir(commit_log_path)
         commit_log_file = open(commit_log_path + '/iter_log.txt', 'w')
-        etcArg = {}
+        etcArg = {'commit':commit['commit']}
 
         error_msg = ''
         #######
