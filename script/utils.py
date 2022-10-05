@@ -94,7 +94,6 @@ def tpool_alloc(n):
     return numa_args , C
 def tpool_free(n):
     global tpoolId, tlock, tcfgfile
-    print(tpoolId,n)
     if n[0] < 0:
         return
     if tcfgfile['iteration']['smode'] == 'st':
