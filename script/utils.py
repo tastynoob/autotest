@@ -1,10 +1,8 @@
-from cmath import inf
 import configparser
 from logging import warning
 import re
 import os
 import git
-import subprocess
 import json
 import psutil
 import time
@@ -51,13 +49,12 @@ def __st_alloc(n):
     temp_flag=False
     while True:
         tlock.acquire()
-        if len(tpoolId[0]) < n:
-            pass
-        else:
+        if len(tpoolId[0]) >= n:
             tpoolId[0].sort()
             alloced = [tpoolId[0][0]]
-            if n==1:
+            if n == 1:
                 tpoolId[0] = tpoolId[0][1:]
+                tlock.release()
                 return (alloced[0],alloced[-1])
             st = 0
             for i in range(1,len(tpoolId[0])):
@@ -97,13 +94,15 @@ def tpool_alloc(n):
     return numa_args , C
 def tpool_free(n):
     global tpoolId, tlock, tcfgfile
-    if n[0] <0:
+    print(tpoolId,n)
+    if n[0] < 0:
         return
     if tcfgfile['iteration']['smode'] == 'st':
         tlock.acquire()
         for i in range(n[0],n[1]+1):
             tpoolId[0]+=[i]
         tlock.release()
+
 
 class CFGReader:
     cfg_map = {'global': {}}
