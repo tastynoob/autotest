@@ -129,14 +129,14 @@ def startMain(work, log_dir: str, etcArg):
                        work[0],
                        log_
                        ))
-        utils.tlock.acquire()
+        #utils.tlock.acquire()
         utils.tpool_free(C)
-        utils.tlock.release()
+        #utils.tlock.release()
         return False
     other.close()
-    utils.tlock.acquire()
+    #utils.tlock.acquire()
     utils.tpool_free(C)
-    utils.tlock.release()
+    #utils.tlock.release()
     return True
 
 

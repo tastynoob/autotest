@@ -29,6 +29,7 @@ def tpool_init(cfgfile):
 def __dy_alloc(n):
     temp_flag = False
     while True:
+        tlock.acquire()
         # To avoid potential conflicts, we allow CI to use SMT.
         num_logical_core = psutil.cpu_count(logical=False)
         core_usage = psutil.cpu_percent(interval=1, percpu=True)
@@ -40,6 +41,8 @@ def __dy_alloc(n):
         if not temp_flag:
             temp_flag = True
             print('no free cores found. will wait for free cores')
+        tlock.locked()
+        time.sleep(1)
         
 #numa_args = f"numactl -m {numa_info[0]} -C {numa_info[1]}-{numa_info[2]}"
 def __st_alloc(n):
@@ -70,7 +73,7 @@ def __st_alloc(n):
         if not temp_flag:
             temp_flag = True
             print('no free cores found. will wait for free cores')
-        time.sleep(0.5)
+        time.sleep(1)
             
 def tpool_alloc(n):
     if n is None :
@@ -94,8 +97,10 @@ def tpool_alloc(n):
 def tpool_free(n):
     global tpoolId, tlock, tcfgfile
     if tcfgfile['iteration']['smode'] == 'st':
+        tlock.acquire()
         for i in range(n[0],n[1]+1):
             tpoolId[0]+=[i]
+        tlock.release()
 
 class CFGReader:
     cfg_map = {'global': {}}
