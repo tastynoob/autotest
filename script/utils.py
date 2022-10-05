@@ -37,11 +37,12 @@ def __dy_alloc(n):
         for i in range(num_window):
             window_usage = core_usage[i * n: i * n + n]
             if sum(window_usage) < 0.3 * n and True not in map(lambda x: x > 0.5, window_usage):
+                tlock.release()
                 return ((i * n) % 128) // 64, (i * n, i * n + n - 1)
         if not temp_flag:
             temp_flag = True
             print('no free cores found. will wait for free cores')
-        tlock.locked()
+        tlock.release()
         time.sleep(1)
         
 #numa_args = f"numactl -m {numa_info[0]} -C {numa_info[1]}-{numa_info[2]}"
@@ -49,10 +50,10 @@ def __st_alloc(n):
     global tpoolId, tlock, tcfgfile
     temp_flag=False
     while True:
+        tlock.acquire()
         if len(tpoolId[0]) < n:
             pass
         else:
-            tlock.acquire()
             tpoolId[0].sort()
             alloced = [tpoolId[0][0]]
             if n==1:
@@ -69,10 +70,10 @@ def __st_alloc(n):
                 else:
                     alloced = [tpoolId[0][i]]
                     st = i
-            tlock.release()
         if not temp_flag:
             temp_flag = True
             print('no free cores found. will wait for free cores')
+        tlock.release()
         time.sleep(1)
             
 def tpool_alloc(n):
@@ -85,8 +86,8 @@ def tpool_alloc(n):
     M=None
     C=None
     if tcfgfile['iteration']['smode'] == 'st':
-        M = '0'
         C = __st_alloc(int(n))
+        M = str(((C[0]) % 128) // 64)
     elif tcfgfile['iteration']['smode'] == 'dy':
         M,C = __dy_alloc(int(n))
     else:
@@ -96,6 +97,8 @@ def tpool_alloc(n):
     return numa_args , C
 def tpool_free(n):
     global tpoolId, tlock, tcfgfile
+    if n[0] <0:
+        return
     if tcfgfile['iteration']['smode'] == 'st':
         tlock.acquire()
         for i in range(n[0],n[1]+1):

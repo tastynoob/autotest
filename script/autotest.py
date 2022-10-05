@@ -183,6 +183,7 @@ def Wrun_multi(log_dir, etcArg):
         cnt += 1
         if cnt >= int(cfgfile['iteration']['max_process']):
             cnt = 0
+        time.sleep(0.5)
     pool.close()
     pool.join()
     finished = True
@@ -215,6 +216,7 @@ def Wrun_single(log_dir, etcArg):
             cnt += 1
             if cnt >= int(cfgfile['iteration']['max_process']):
                 cnt = 0
+            time.sleep(0.5)
     pool.close()
     pool.join()
     finished = True
