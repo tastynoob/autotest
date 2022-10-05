@@ -57,12 +57,12 @@ def __st_alloc(n):
                 return (alloced[0],alloced[-1])
             st = 0
             for i in range(1,len(tpoolId[0])):
-                if len(alloced) == n:
-                    tpoolId[0] = tpoolId[0][:st] + tpoolId[0][i:]
-                    tlock.release()
-                    return (alloced[0],alloced[-1])
                 if tpoolId[0][i-1]+1 == tpoolId[0][i]:
                     alloced.append(tpoolId[0][i])
+                    if len(alloced) == n:
+                        tpoolId[0] = tpoolId[0][:st] + tpoolId[0][i+1:]
+                        tlock.release()
+                        return (alloced[0], alloced[-1])
                 else:
                     alloced = [tpoolId[0][i]]
                     st = i
