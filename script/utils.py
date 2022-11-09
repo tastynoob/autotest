@@ -159,8 +159,6 @@ def splitfile(str: str, i):
     return str[subidx+2:]
 
 # 返回文件名和子log文件路径
-
-
 def get_file_list(path: str):
     subpaths = path.split(';')
     sargs = []
