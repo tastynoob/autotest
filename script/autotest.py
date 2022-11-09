@@ -111,8 +111,8 @@ def startMain(work, log_dir: str, etcArg):
         other.close()
         mailSendMsg(
             """autotest find a error in:
-            work:{3}
-            log:{4}
+            work:{0}
+            log:{1}
             """.format(work[0],
                        log_
                        ))
@@ -256,10 +256,14 @@ def iteration():
     finished1 = False
     if finished0:
         #######
+        runErr_works=""
         if cfgfile['iteration']['working_mode'] == 'multi':
             finished1, runErr_works = Wrun_multi(work_log_path, etcArg)
         elif cfgfile['iteration']['working_mode'] == 'single':
             finished1, runErr_works = Wrun_single(work_log_path, etcArg)
+        else:
+            print("the error working_mode!")
+            exit(1)
         if not finished1:
             error_msg += 'error works:{0}\n'.format(str(runErr_works))
     else:
