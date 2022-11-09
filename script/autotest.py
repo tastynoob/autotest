@@ -32,14 +32,12 @@ CFG_PATH = args.file
 
 # check dir
 cfgfile = utils.CFGReader(CFG_PATH)
-commit_info_path = cfgfile['global']['log_root'] + '/commits.txt'
 
 works, pre_work, post_work = utils.getWorks(cfgfile)
 if len(works) == 0:
     print('has no work to do')
     exit(1)
-# 拉取仓库并切换branch
-repo = utils.getBranch(cfgfile)
+
 
 
 if not os.path.exists(cfgfile['global']['log_root']):
@@ -47,9 +45,6 @@ if not os.path.exists(cfgfile['global']['log_root']):
 #初始化tpoolId
 utils.tpool_init(cfgfile)
 
-
-# 工作逻辑:获取远程commit并与当前脚本的本地测试commit比较,获取新添加的commit
-# 对新添加的commit进行测试,测试完毕,等待一段时间再次获取远程commit
 
 
 def mailSendMsg(msg: str):
@@ -116,15 +111,9 @@ def startMain(work, log_dir: str, etcArg):
         other.close()
         mailSendMsg(
             """autotest find a error in:
-            repo:{0} 
-            branch:{1}
-            commit:{2}
             work:{3}
             log:{4}
-            """.format(cfgfile['global']['repo_url'],
-                       cfgfile['global']['repo_branch'],
-                       etcArg['commit'],
-                       work[0],
+            """.format(work[0],
                        log_
                        ))
         utils.tpool_free(C)
@@ -251,87 +240,56 @@ def Wend(work_finished, log_dir, log_file: TextIOWrapper, etcArg: dict):
         return False
     return True
 
-# 如果当前commit测试错误,则删除未还未测试的commit
-# 用于在此产生一个断点用于下次运行时恢复运行
 
 
-def breakpointSave(break_commit: dict):
-    done_commits: list[dict] = []
-    with open(commit_info_path, 'r') as fs:
-        local_commits = json.loads(fs.read())
-        for i in range(len(local_commits)-1):
-            if local_commits[i]['commit'] == break_commit['commit']:
-                done_commits = local_commits[i+1:]
-                break
-    with open(commit_info_path, 'w') as fs:
-        fs.write(json.dumps(done_commits))
 
+def iteration():
+    work_log_path = cfgfile['global']['log_root']
+    if not os.path.exists(work_log_path):
+        os.mkdir(work_log_path)
+    work_log_file = open(work_log_path + '/iter_log.txt', 'w')
+    etcArg = {}
 
-def iteration(extra_commits):
-    extra_commits.reverse()
-    # 从最老的commit开始测试
-    for commit in extra_commits:
-        repo.git.checkout(commit['commit'])
-        commit_log_path = cfgfile['global']['log_root']+'/'+commit['commit']
-        if not os.path.exists(commit_log_path):
-            os.mkdir(commit_log_path)
-        commit_log_file = open(commit_log_path + '/iter_log.txt', 'w')
-        etcArg = {'commit':commit['commit']}
-
-        error_msg = ''
+    error_msg = ''
+    #######
+    finished0 = Wstart(work_log_path, work_log_file, etcArg)
+    finished1 = False
+    if finished0:
         #######
-        finished0 = Wstart(commit_log_path, commit_log_file, etcArg)
-        finished1 = False
-        if finished0:
-            #######
-            if cfgfile['iteration']['working_mode'] == 'multi':
-                finished1, runErr_works = Wrun_multi(commit_log_path, etcArg)
-            elif cfgfile['iteration']['working_mode'] == 'single':
-                finished1, runErr_works = Wrun_single(commit_log_path, etcArg)
-            if not finished1:
-                error_msg += 'error works:{0}\n'.format(str(runErr_works))
-        else:
-            error_msg += 'pre-work running error\n'
-        # 它会自动关闭commit_log_file
-        finished2 = Wend(finished1, commit_log_path,
-                         commit_log_file, etcArg)
-        if finished1 and (not finished2):#post-work执行发生错误
-            error_msg += 'post-work running error\n'
+        if cfgfile['iteration']['working_mode'] == 'multi':
+            finished1, runErr_works = Wrun_multi(work_log_path, etcArg)
+        elif cfgfile['iteration']['working_mode'] == 'single':
+            finished1, runErr_works = Wrun_single(work_log_path, etcArg)
+        if not finished1:
+            error_msg += 'error works:{0}\n'.format(str(runErr_works))
+    else:
+        error_msg += 'pre-work running error\n'
+    # 它会自动关闭work_log_file
+    finished2 = Wend(finished1, work_log_path,
+                        work_log_file, etcArg)
+    if finished1 and (not finished2):#post-work执行发生错误
+        error_msg += 'post-work running error\n'
 
-        if not (finished0 and finished1 and finished2):  # 发生任何错误
-            # 发送消息
-            mailSendMsg(
-                """autotest find a error in:
-            repo:{0} 
-            branch:{1}
-            commit:{2}
-            error msg: 
-            {3}
-            """.format(cfgfile['global']['repo_url'],
-                       cfgfile['global']['repo_branch'],
-                       str(commit),
-                       error_msg))
-            if cfgfile['iteration']['except_mode'] == 'stop':  # 如果是stop模式则直接退出并打一个断点
-                breakpointSave(commit)
-                return False
-            elif cfgfile['iteration']['except_mode'] == 'skip':  # 如果是skip模式则跳过当前测试,进入下次迭代
-                break
-            elif cfgfile['iteration']['except_mode'] == 'ignore':  # 忽略,继续执行下一个commit测试
-                pass
+    if not (finished0 and finished1 and finished2):  # 发生任何错误
+        # 发送消息
+        mailSendMsg(
+            """autotest find a error in:
+        error msg: 
+        {0}
+        """.format(error_msg))
+        if cfgfile['iteration']['except_mode'] == 'stop':  # 如果是stop模式则直接退出
+            return False
+        elif cfgfile['iteration']['except_mode'] == 'ignore':  # 忽略,继续执行下一个测试
+            pass
     return True
 
 
 endless = int(cfgfile['iteration']['num']) < 0
 iterations = int(cfgfile['iteration']['num'])
 while endless or iterations > 0:
-    origin_commits = utils.getAllCommitInfo(cfgfile,
-        repo, cfgfile['iteration']['pull'])
-    extra_commits = utils.checkCommit(commit_info_path, origin_commits)
 
-    finished = iteration(extra_commits)
+    finished = iteration()
     iterations -= 1
-    # 保存已完成的commit
-    utils.saveCommits(commit_info_path)
 
     if not finished:
         exit(-1)
