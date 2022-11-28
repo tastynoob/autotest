@@ -249,7 +249,7 @@ def iteration():
         os.mkdir(work_log_path)
     work_log_file = open(work_log_path + '/iter_log.txt', 'w')
     etcArg = {}
-
+    ignore_return = False
     error_msg = ''
     #######
     finished0 = Wstart(work_log_path, work_log_file, etcArg)
@@ -284,7 +284,9 @@ def iteration():
         if cfgfile['iteration']['except_mode'] == 'stop':  # 如果是stop模式则直接退出
             return False
         elif cfgfile['iteration']['except_mode'] == 'ignore':  # 忽略,继续执行下一个测试
-            pass
+            ignore_return = True
+    if ignore_return:
+        return False
     return True
 
 
